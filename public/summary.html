@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Osszegzes — Open Workout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'IBM Plex Mono', monospace; }
+    .font-display { font-family: 'Oswald', sans-serif; }
+    .bg-noise {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .animate-fade { animation: fadeIn 0.5s ease-out both; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="summaryApp()" x-init="init()">
+
+  <header class="border-b border-zinc-800">
+    <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1 rounded-full" :style="`background: ${workoutColor || '#ef4444'}`"></div>
+        <h1 class="font-display text-xl font-600 uppercase tracking-wide" x-text="workoutName || 'Osszegzes'"></h1>
+      </div>
+      <a href="/" class="text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition">Vissza</a>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-6 py-8 space-y-8">
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-3 animate-fade" x-show="summary">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
+        <p class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-2">Idotartam</p>
+        <p class="font-display text-2xl font-600" x-text="formatDuration(summary?.session)"></p>
+      </div>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
+        <p class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-2">Osszes suly</p>
+        <p class="font-display text-2xl font-600" x-text="Math.round(summary?.session?.total_weight || 0) + ' kg'"></p>
+      </div>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
+        <p class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-2">Setek</p>
+        <p class="font-display text-2xl font-600" x-text="summary?.sets?.length || 0"></p>
+      </div>
+    </div>
+
+    <!-- PRs -->
+    <div x-show="summary?.newPrs?.length > 0"
+         class="bg-amber-950/20 border border-amber-700/30 rounded-lg p-5 animate-fade" style="animation-delay: 100ms">
+      <h2 class="text-[10px] uppercase tracking-[0.2em] text-amber-500 font-medium mb-3">Uj egyeni rekordok</h2>
+      <template x-for="pr in summary?.newPrs || []" :key="pr.id">
+        <div class="flex justify-between py-2 border-b border-amber-900/30 last:border-0">
+          <span class="text-sm" x-text="pr.exercise_name"></span>
+          <span class="font-display font-600 text-amber-400" x-text="pr.max_weight + ' kg'"></span>
+        </div>
+      </template>
+    </div>
+
+    <!-- Sets -->
+    <div x-show="summary?.sets?.length > 0" class="animate-fade" style="animation-delay: 200ms">
+      <h2 class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-medium mb-3">Setek</h2>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-zinc-800">
+              <th class="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-zinc-600 font-medium">Gyakorlat</th>
+              <th class="px-4 py-2.5 text-center text-[10px] uppercase tracking-wider text-zinc-600 font-medium">Set</th>
+              <th class="px-4 py-2.5 text-center text-[10px] uppercase tracking-wider text-zinc-600 font-medium">Suly</th>
+              <th class="px-4 py-2.5 text-center text-[10px] uppercase tracking-wider text-zinc-600 font-medium">Ism.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="s in summary?.sets || []" :key="s.id">
+              <tr class="border-b border-zinc-800/50 last:border-0" :class="isPr(s) ? 'bg-amber-950/20' : ''">
+                <td class="px-4 py-2.5">
+                  <span x-text="s.exercise_name"></span>
+                  <span x-show="isPr(s)" class="text-amber-400 text-[10px] ml-2 uppercase">PR</span>
+                </td>
+                <td class="px-4 py-2.5 text-center text-zinc-500" x-text="s.set_number"></td>
+                <td class="px-4 py-2.5 text-center font-medium" x-text="s.weight + ' kg'"></td>
+                <td class="px-4 py-2.5 text-center text-zinc-400" x-text="s.reps"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    function summaryApp() {
+      return {
+        summary: null, workoutName: '', workoutColor: '',
+        async init() {
+          const id = new URLSearchParams(window.location.search).get('id');
+          if (!id) { window.location.href = '/'; return; }
+          const [sessionData, prData, workouts] = await Promise.all([
+            fetch(`/api/sessions/${id}`).then(r => r.json()),
+            fetch('/api/prs').then(r => r.json()),
+            fetch('/api/workouts').then(r => r.json())
+          ]);
+          const w = workouts.find(w => w.id === sessionData.workout_id);
+          this.workoutName = w?.name || '';
+          this.workoutColor = w?.color || '#ef4444';
+          this.summary = { ...sessionData, newPrs: prData.filter(pr => pr.session_id == id) };
+        },
+        formatDuration(session) {
+          if (!session?.started_at || !session?.finished_at) return '-';
+          const diff = (new Date(session.finished_at) - new Date(session.started_at)) / 1000;
+          return `${Math.floor(diff / 60)} p ${Math.floor(diff % 60)} mp`;
+        },
+        isPr(set) {
+          return this.summary?.newPrs?.some(pr => pr.exercise_name === set.exercise_name && pr.equipment === set.equipment) || false;
+        }
+      };
+    }
+  </script>
+</body>
+</html>

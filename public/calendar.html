@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Naptar — Open Workout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'IBM Plex Mono', monospace; }
+    .font-display { font-family: 'Oswald', sans-serif; }
+    .bg-noise {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="calendarApp()" x-init="init()">
+
+  <header class="border-b border-zinc-800">
+    <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="/" class="text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition">Vissza</a>
+      <h1 class="font-display text-xl font-600 uppercase tracking-wide">Naptar</h1>
+      <div class="w-12"></div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-6 py-8 space-y-6">
+
+    <!-- Month nav -->
+    <div class="flex items-center justify-between">
+      <button @click="prevMonth()" class="w-10 h-10 flex items-center justify-center text-zinc-500 hover:text-zinc-300 border border-zinc-800 rounded-lg hover:border-zinc-600 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 class="font-display text-2xl font-600 uppercase tracking-wide" x-text="monthLabel"></h2>
+      <button @click="nextMonth()" class="w-10 h-10 flex items-center justify-center text-zinc-500 hover:text-zinc-300 border border-zinc-800 rounded-lg hover:border-zinc-600 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
+    <!-- Calendar -->
+    <div class="grid grid-cols-7 gap-1">
+      <template x-for="d in ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V']" :key="d">
+        <div class="text-center text-[10px] uppercase tracking-wider text-zinc-700 py-2 font-medium" x-text="d"></div>
+      </template>
+
+      <template x-for="i in startOffset" :key="'e-'+i">
+        <div class="rounded-lg aspect-square"></div>
+      </template>
+
+      <template x-for="day in daysInMonth" :key="day">
+        <div @click="selectDay(day)"
+             class="rounded-lg aspect-square flex flex-col items-center justify-center cursor-pointer transition-all duration-200 border"
+             :class="sessionsOnDay(day).length > 0 ? 'bg-zinc-900 border-zinc-700 hover:border-zinc-500' : 'border-transparent hover:bg-zinc-900/50'">
+          <span class="text-sm" :class="day === today ? 'text-amber-400 font-medium' : 'text-zinc-400'" x-text="day"></span>
+          <div class="flex gap-0.5 mt-1">
+            <template x-for="s in sessionsOnDay(day)" :key="s.id">
+              <div class="w-1.5 h-1.5 rounded-full" :style="`background: ${workoutColor(s.workout_id)}`"></div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Day detail -->
+    <div x-show="selectedDay" class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-3">
+      <h3 class="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-medium" x-text="selectedDayLabel"></h3>
+      <template x-for="s in selectedDaySessions" :key="s.id">
+        <a :href="'/summary.html?id=' + s.id"
+           class="flex items-center justify-between px-4 py-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition group">
+          <div class="flex items-center gap-3">
+            <div class="w-2 h-2 rounded-full" :style="`background: ${workoutColor(s.workout_id)}`"></div>
+            <span class="text-sm font-medium" x-text="s.workout_id"></span>
+            <span class="text-[10px] text-zinc-600" x-text="s.set_count + ' set'"></span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span x-show="s.total_weight" class="text-xs text-zinc-500" x-text="Math.round(s.total_weight) + ' kg'"></span>
+            <span class="text-[10px] uppercase tracking-wider text-zinc-600 group-hover:text-zinc-400 transition">Reszletek</span>
+          </div>
+        </a>
+      </template>
+      <p x-show="selectedDaySessions.length === 0" class="text-zinc-700 text-sm">Nem volt edzes ezen a napon.</p>
+    </div>
+
+  </main>
+
+  <script>
+    function calendarApp() {
+      return {
+        year: new Date().getFullYear(), month: new Date().getMonth(),
+        sessions: [], selectedDay: null, workouts: [], colorMap: {},
+
+        get monthLabel() {
+          const m = ['Januar','Februar','Marcius','Aprilis','Majus','Junius','Julius','Augusztus','Szeptember','Oktober','November','December'];
+          return `${m[this.month]} ${this.year}`;
+        },
+        get startOffset() { const d = new Date(this.year, this.month, 1).getDay(); return d === 0 ? 6 : d - 1; },
+        get daysInMonth() { return new Date(this.year, this.month + 1, 0).getDate(); },
+        get today() { const n = new Date(); return (n.getFullYear() === this.year && n.getMonth() === this.month) ? n.getDate() : -1; },
+        get selectedDaySessions() { return this.selectedDay ? this.sessionsOnDay(this.selectedDay) : []; },
+        get selectedDayLabel() {
+          if (!this.selectedDay) return '';
+          return `${this.year}.${(this.month + 1).toString().padStart(2,'0')}.${this.selectedDay.toString().padStart(2,'0')}`;
+        },
+
+        async init() {
+          this.workouts = await fetch('/api/workouts').then(r => r.json());
+          this.workouts.forEach(w => this.colorMap[w.id] = w.color || '#ef4444');
+          await this.fetchSessions();
+        },
+        async fetchSessions() {
+          const from = `${this.year}-${(this.month+1).toString().padStart(2,'0')}-01`;
+          const to = new Date(this.year, this.month + 1, 0).toISOString().slice(0, 10);
+          this.sessions = await fetch(`/api/sessions?from=${from}&to=${to}`).then(r => r.json());
+        },
+        sessionsOnDay(day) {
+          const d = `${this.year}-${(this.month+1).toString().padStart(2,'0')}-${day.toString().padStart(2,'0')}`;
+          return this.sessions.filter(s => s.started_at?.startsWith(d));
+        },
+        workoutColor(id) { return this.colorMap[id] || '#ef4444'; },
+        selectDay(day) { this.selectedDay = this.selectedDay === day ? null : day; },
+        async prevMonth() { this.month--; if (this.month < 0) { this.month = 11; this.year--; } this.selectedDay = null; await this.fetchSessions(); },
+        async nextMonth() { this.month++; if (this.month > 11) { this.month = 0; this.year++; } this.selectedDay = null; await this.fetchSessions(); }
+      };
+    }
+  </script>
+</body>
+</html>

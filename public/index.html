@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Workout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'IBM Plex Mono', monospace; }
+    .font-display { font-family: 'Oswald', sans-serif; }
+    .card-glow:hover { box-shadow: 0 0 30px -10px var(--glow); }
+    .bg-noise {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-slide-up { animation: slideUp 0.4s ease-out both; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="dashboardApp()" x-init="init()">
+
+  <!-- Header -->
+  <header class="border-b border-zinc-800">
+    <div class="max-w-5xl mx-auto px-6 py-6 flex items-end justify-between">
+      <div>
+        <h1 class="font-display text-5xl font-700 uppercase tracking-tight leading-none">Open<br><span class="text-zinc-500">Workout</span></h1>
+        <div class="h-0.5 w-16 bg-red-500 mt-3"></div>
+      </div>
+      <nav class="flex gap-1">
+        <a href="/calendar.html" class="px-4 py-2 text-xs font-medium uppercase tracking-widest text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded transition">Naptar</a>
+        <a href="/history.html" class="px-4 py-2 text-xs font-medium uppercase tracking-widest text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded transition">Tortenet</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Workout cards -->
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-zinc-600 mb-6">Valassz edzestipust</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <template x-for="(w, i) in workouts" :key="w.id">
+        <div @click="startWorkout(w.id)"
+             class="card-glow animate-slide-up group cursor-pointer border border-zinc-800 rounded-lg overflow-hidden transition-all duration-300 hover:border-zinc-600"
+             :style="`--glow: ${w.color || '#ef4444'}; animation-delay: ${i * 80}ms`">
+          <!-- Color accent bar -->
+          <div class="h-1" :style="`background: ${w.color || '#ef4444'}`"></div>
+          <div class="p-6 bg-zinc-900/80">
+            <div class="flex items-start justify-between mb-4">
+              <h3 class="font-display text-2xl font-600 uppercase tracking-wide" x-text="w.name"></h3>
+              <span class="text-[10px] uppercase tracking-widest text-zinc-600 border border-zinc-700 px-2 py-0.5 rounded" x-text="w.exercises.length + ' gyakorlat'"></span>
+            </div>
+            <!-- Exercise preview with images -->
+            <div class="space-y-2 mb-6">
+              <template x-for="ex in w.exercises" :key="ex.order">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0" :style="ex.image ? '' : ''">
+                    <img x-show="ex.image" :src="ex.image" class="w-6 h-6 opacity-60 group-hover:opacity-100 transition" :style="`color: ${w.color || '#ef4444'}`">
+                    <span x-show="!ex.image" class="text-[10px] text-zinc-600 font-medium" x-text="ex.order"></span>
+                  </div>
+                  <span class="text-sm text-zinc-500 group-hover:text-zinc-300 transition" x-text="ex.name"></span>
+                </div>
+              </template>
+            </div>
+            <button class="w-full py-2.5 text-xs font-medium uppercase tracking-widest rounded transition-all duration-200 border"
+                    :style="`border-color: ${w.color || '#ef4444'}40; color: ${w.color || '#ef4444'}`"
+                    @mouseover="$el.style.background = (w.color || '#ef4444'); $el.style.color = '#000'"
+                    @mouseout="$el.style.background = 'transparent'; $el.style.color = (w.color || '#ef4444')">
+              Inditas
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </main>
+
+  <script>
+    function dashboardApp() {
+      return {
+        workouts: [],
+        async init() {
+          this.workouts = await fetch('/api/workouts').then(r => r.json());
+        },
+        async startWorkout(workoutId) {
+          const res = await fetch('/api/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workout_id: workoutId })
+          }).then(r => r.json());
+          window.location.href = `/workout.html?id=${res.id}`;
+        }
+      };
+    }
+  </script>
+</body>
+</html>

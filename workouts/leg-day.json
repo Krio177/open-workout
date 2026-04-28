@@ -1,0 +1,46 @@
+{
+  "id": "leg-day",
+  "name": "Lab nap",
+  "youtubeUrl": "https://www.youtube.com/watch?v=zcv6gCPxJCQ",
+  "defaultRestSeconds": 90,
+  "color": "#f59e0b",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Guggolas",
+      "equipment": "barbell",
+      "defaultWeight": 80,
+      "defaultReps": 6,
+      "restSeconds": 150,
+      "notes": "Teljes tartomany",
+      "image": "/images/squat.svg"
+    },
+    {
+      "order": 2,
+      "name": "Kitores",
+      "equipment": "dumbbell",
+      "defaultWeight": 20,
+      "defaultReps": 10,
+      "restSeconds": 90,
+      "image": "/images/lunge.svg"
+    },
+    {
+      "order": 3,
+      "name": "Romaniai felhuzas",
+      "equipment": "barbell",
+      "defaultWeight": 60,
+      "defaultReps": 8,
+      "restSeconds": 90,
+      "image": "/images/rdl.svg"
+    },
+    {
+      "order": 4,
+      "name": "Vadli emeles",
+      "equipment": "machine",
+      "defaultWeight": 60,
+      "defaultReps": 12,
+      "restSeconds": 60,
+      "image": "/images/calf-raise.svg"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "chest-day",
+  "name": "Mell nap",
+  "youtubeUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4",
+  "defaultRestSeconds": 90,
+  "color": "#ef4444",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Fekvenyomas",
+      "equipment": "barbell",
+      "defaultWeight": 60,
+      "defaultReps": 8,
+      "restSeconds": 120,
+      "notes": "Lassan engedd le",
+      "image": "/images/bench-press.svg"
+    },
+    {
+      "order": 2,
+      "name": "Tamas kar elore",
+      "equipment": "dumbbell",
+      "defaultWeight": 14,
+      "defaultReps": 10,
+      "restSeconds": 90,
+      "image": "/images/dumbbell-fly.svg"
+    },
+    {
+      "order": 3,
+      "name": "Kabel keresztezes",
+      "equipment": "cable",
+      "defaultWeight": 15,
+      "defaultReps": 12,
+      "restSeconds": 60,
+      "image": "/images/cable-crossover.svg"
+    }
+  ]
+}

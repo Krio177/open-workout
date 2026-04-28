@@ -1,0 +1,45 @@
+{
+  "id": "shoulder-day",
+  "name": "Vall nap",
+  "youtubeUrl": "https://www.youtube.com/watch?v=q5SHPsE6v14",
+  "defaultRestSeconds": 75,
+  "color": "#8b5cf6",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Nyomas allva",
+      "equipment": "barbell",
+      "defaultWeight": 40,
+      "defaultReps": 8,
+      "restSeconds": 120,
+      "image": "/images/overhead-press.svg"
+    },
+    {
+      "order": 2,
+      "name": "Oldal emeles",
+      "equipment": "dumbbell",
+      "defaultWeight": 10,
+      "defaultReps": 12,
+      "restSeconds": 60,
+      "image": "/images/lateral-raise.svg"
+    },
+    {
+      "order": 3,
+      "name": "Far emeles",
+      "equipment": "cable",
+      "defaultWeight": 10,
+      "defaultReps": 15,
+      "restSeconds": 60,
+      "image": "/images/rear-delt-fly.svg"
+    },
+    {
+      "order": 4,
+      "name": "Trapex emeles",
+      "equipment": "barbell",
+      "defaultWeight": 40,
+      "defaultReps": 10,
+      "restSeconds": 75,
+      "image": "/images/shrug.svg"
+    }
+  ]
+}

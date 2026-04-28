@@ -1,0 +1,45 @@
+{
+  "id": "back-day",
+  "name": "Hat nap",
+  "youtubeUrl": "https://www.youtube.com/watch?v=roCCVZn0rK4",
+  "defaultRestSeconds": 90,
+  "color": "#3b82f6",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Felhuzas",
+      "equipment": "barbell",
+      "defaultWeight": 70,
+      "defaultReps": 6,
+      "restSeconds": 150,
+      "image": "/images/deadlift.svg"
+    },
+    {
+      "order": 2,
+      "name": "Evezes",
+      "equipment": "barbell",
+      "defaultWeight": 50,
+      "defaultReps": 8,
+      "restSeconds": 90,
+      "image": "/images/barbell-row.svg"
+    },
+    {
+      "order": 3,
+      "name": "Lat huzas",
+      "equipment": "cable",
+      "defaultWeight": 40,
+      "defaultReps": 10,
+      "restSeconds": 75,
+      "image": "/images/lat-pulldown.svg"
+    },
+    {
+      "order": 4,
+      "name": "Arckezeles",
+      "equipment": "cable",
+      "defaultWeight": 20,
+      "defaultReps": 12,
+      "restSeconds": 60,
+      "image": "/images/face-pull.svg"
+    }
+  ]
+}

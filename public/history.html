@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tortenet — Open Workout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'IBM Plex Mono', monospace; }
+    .font-display { font-family: 'Oswald', sans-serif; }
+    .bg-noise {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-slide-up { animation: slideUp 0.3s ease-out both; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="historyApp()" x-init="init()">
+
+  <header class="border-b border-zinc-800">
+    <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="/" class="text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition">Vissza</a>
+      <h1 class="font-display text-xl font-600 uppercase tracking-wide">Tortenet</h1>
+      <div class="w-12"></div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-6 py-8 space-y-2">
+
+    <template x-for="(s, i) in sessions" :key="s.id">
+      <a :href="s.finished_at ? '/summary.html?id=' + s.id : '#'"
+         class="animate-slide-up flex items-center justify-between px-5 py-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-600 transition group"
+         :class="!s.finished_at ? 'opacity-50' : ''"
+         :style="`animation-delay: ${i * 40}ms`">
+        <div class="flex items-center gap-4">
+          <div class="w-1.5 h-8 rounded-full" :style="`background: ${workoutColor(s.workout_id)}`"></div>
+          <div>
+            <span class="text-sm font-medium" x-text="s.workout_id"></span>
+            <div class="text-[10px] text-zinc-600 mt-0.5" x-text="formatDate(s.started_at)"></div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 text-[10px] uppercase tracking-wider">
+          <span x-show="s.total_weight" class="text-zinc-500" x-text="Math.round(s.total_weight) + ' kg'"></span>
+          <span class="text-zinc-600" x-text="(s.set_count || 0) + ' set'"></span>
+          <span x-show="!s.finished_at" class="text-amber-500">Folyamatban</span>
+          <svg class="w-3.5 h-3.5 text-zinc-700 group-hover:text-zinc-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </a>
+    </template>
+
+    <div x-show="sessions.length === 0" class="text-center text-zinc-700 py-16">
+      <p class="text-sm">Meg nem volt edzes.</p>
+    </div>
+
+  </main>
+
+  <script>
+    function historyApp() {
+      return {
+        sessions: [], colorMap: {},
+        async init() {
+          const workouts = await fetch('/api/workouts').then(r => r.json());
+          workouts.forEach(w => this.colorMap[w.id] = w.color || '#ef4444');
+          this.sessions = await fetch('/api/sessions').then(r => r.json());
+        },
+        workoutColor(id) { return this.colorMap[id] || '#ef4444'; },
+        formatDate(iso) {
+          if (!iso) return '';
+          const d = new Date(iso);
+          return `${d.getFullYear()}.${(d.getMonth()+1).toString().padStart(2,'0')}.${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+        }
+      };
+    }
+  </script>
+</body>
+</html>
