@@ -174,28 +174,29 @@
             </div>
 
             <template x-for="(set, si) in exerciseSets" :key="si">
-              <div class="animate-slide-in flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-200"
+              <div @click="toggleSet(si)"
+                   class="animate-slide-in flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-200 cursor-pointer"
                    :class="set.done ? 'bg-emerald-950/30 border-emerald-800/50' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'"
                    :style="`animation-delay: ${si * 50}ms`">
                 <!-- Check -->
-                <button @click="toggleSet(si)"
-                        :disabled="set.done || set.saving"
-                        class="flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200"
-                        :class="set.done ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 hover:border-zinc-400'">
+                <div class="flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200 pointer-events-none"
+                     :class="set.done ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'">
                   <svg x-show="set.done" class="w-3.5 h-3.5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
                   </svg>
-                </button>
+                </div>
                 <!-- Set # -->
                 <span class="text-[10px] uppercase tracking-wider w-10" :class="set.done ? 'text-emerald-600' : 'text-zinc-600'" x-text="'S' + (si + 1)"></span>
                 <!-- Weight -->
                 <input type="number" x-model.number="set.weight" step="0.5"
+                       @click.stop
                        :disabled="set.done"
                        class="w-20 bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-center text-sm focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
                        :class="set.done && 'bg-emerald-900/20 border-transparent'">
                 <span class="text-[10px] text-zinc-600">kg</span>
                 <!-- Reps -->
                 <input type="number" x-model.number="set.reps"
+                       @click.stop
                        :disabled="set.done"
                        class="w-16 bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-center text-sm focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
                        :class="set.done && 'bg-emerald-900/20 border-transparent'">
@@ -203,7 +204,7 @@
                 <!-- PR -->
                 <span x-show="set.isPr" class="text-[10px] uppercase tracking-wider text-amber-400 font-medium">PR</span>
                 <!-- Delete -->
-                <button @click="removeSet(si)"
+                <button @click.stop="removeSet(si)"
                         class="ml-auto text-zinc-700 hover:text-red-400 transition disabled:opacity-30">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -428,7 +429,17 @@
 
         async toggleSet(si) {
           const ex = this.currentExercise; const set = this.allSets[ex.name][si];
-          if (set.done || set.saving) return;
+          if (set.saving) return;
+
+          // Un-complete: remove saved set
+          if (set.done) {
+            this.clearAutoAdvance();
+            if (set.saved && set.id) await fetch(`/api/sessions/${this.sessionId}/sets/${set.id}`, { method: 'DELETE' });
+            set.done = false; set.saved = false; set.isPr = false; set.id = null;
+            return;
+          }
+
+          // Complete set
           set.saving = true;
 
           const res = await fetch(`/api/sessions/${this.sessionId}/sets`, {

@@ -138,6 +138,13 @@ app.post('/api/sessions', async (c) => {
   if (!workouts.has(workout_id)) {
     return c.json({ error: 'Unknown workout' }, 400);
   }
+  // Prevent duplicate active sessions
+  const existing = await pool.query(
+    'SELECT id FROM workout_sessions WHERE finished_at IS NULL LIMIT 1'
+  );
+  if (existing.rows.length > 0) {
+    return c.json(existing.rows[0], 200);
+  }
   const res = await pool.query(
     'INSERT INTO workout_sessions (workout_id) VALUES ($1) RETURNING *',
     [workout_id]
@@ -183,11 +190,13 @@ app.get('/api/sessions/:id', async (c) => {
 
 app.put('/api/sessions/:id/finish', async (c) => {
   const id = c.req.param('id');
+
   const totalRes = await pool.query(
     'SELECT COALESCE(SUM(weight * reps), 0) as total FROM exercise_sets WHERE session_id = $1',
     [id]
   );
   const totalWeight = totalRes.rows[0].total;
+
   const res = await pool.query(
     'UPDATE workout_sessions SET finished_at = NOW(), total_weight = $2 WHERE id = $1 AND finished_at IS NULL RETURNING *',
     [id, totalWeight]

@@ -99,7 +99,7 @@
               </div>
             </template>
             <template x-if="!activeSessions[w.id]">
-              <button @click="startWorkout(w.id)"
+              <button @click.stop="startWorkout(w.id)"
                       :disabled="hasAnyActive"
                       class="w-full py-2.5 text-xs font-medium uppercase tracking-widest rounded transition-all duration-200 border disabled:opacity-30 disabled:cursor-not-allowed"
                       :style="isNext(i) ? `border-color: ${w.color || '#ef4444'}; color: ${w.color || '#ef4444'}; background: ${(w.color || '#ef4444')}15` : `border-color: ${(w.color || '#ef4444')}40; color: ${w.color || '#ef4444'}`"
