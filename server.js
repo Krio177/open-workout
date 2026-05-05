@@ -109,6 +109,29 @@ app.get('/api/workouts/:id', (c) => {
   return c.json(w);
 });
 
+// --- Workout rotation ---
+app.get('/api/workouts/rotation', async (c) => {
+  const list = [...workouts.values()]
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+  const lastRes = await pool.query(
+    `SELECT workout_id FROM workout_sessions
+     WHERE finished_at IS NOT NULL
+     ORDER BY finished_at DESC LIMIT 1`
+  );
+
+  let nextIndex = 0;
+  if (lastRes.rows.length > 0) {
+    const lastId = lastRes.rows[0].workout_id;
+    const idx = list.findIndex(w => w.id === lastId);
+    if (idx !== -1) {
+      nextIndex = (idx + 1) % list.length;
+    }
+  }
+
+  return c.json({ workouts: list, nextIndex });
+});
+
 // --- Session endpoints ---
 app.post('/api/sessions', async (c) => {
   const { workout_id } = await c.req.json();

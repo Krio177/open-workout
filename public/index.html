@@ -37,17 +37,32 @@
 
   <!-- Workout cards -->
   <main class="max-w-5xl mx-auto px-6 py-10">
-    <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-zinc-600 mb-6">Valassz edzestipust</h2>
+    <div class="flex items-center gap-3 mb-6">
+      <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-zinc-600">Valassz edzestipust</h2>
+      <div class="flex-1 h-px bg-zinc-800"></div>
+      <span class="text-[9px] uppercase tracking-[0.15em] text-green-400 bg-green-400/10 px-2.5 py-1 rounded border border-green-400/25" x-text="'Kovetkezo: #' + (nextIndex + 1)"></span>
+    </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <template x-for="(w, i) in workouts" :key="w.id">
         <div @click="startWorkout(w.id)"
-             class="card-glow animate-slide-up group cursor-pointer border border-zinc-800 rounded-lg overflow-hidden transition-all duration-300 hover:border-zinc-600"
-             :style="`--glow: ${w.color || '#ef4444'}; animation-delay: ${i * 80}ms`">
+             class="card-glow animate-slide-up group cursor-pointer border rounded-lg overflow-hidden transition-all duration-300"
+             :class="isNext(i) ? 'border-2 hover:border-opacity-80' : 'border-zinc-800 hover:border-zinc-600'"
+             :style="isNext(i)
+               ? `--glow: ${w.color || '#ef4444'}; border-color: ${w.color || '#ef4444'}80; animation-delay: ${i * 80}ms; box-shadow: 0 0 40px -15px ${(w.color || '#ef4444')}40`
+               : `--glow: ${w.color || '#ef4444'}; opacity: ${hasAnyActive ? '1' : '0.55'}; animation-delay: ${i * 80}ms`">
           <!-- Color accent bar -->
           <div class="h-1" :style="`background: ${w.color || '#ef4444'}`"></div>
           <div class="p-6 bg-zinc-900/80">
             <div class="flex items-start justify-between mb-4">
-              <h3 class="font-display text-2xl font-600 uppercase tracking-wide" x-text="w.name"></h3>
+              <div class="flex items-center gap-3">
+                <span class="font-display text-2xl font-700 leading-none w-10 h-10 flex items-center justify-center rounded-lg"
+                      :style="`color: ${w.color || '#ef4444'}; background: ${w.color || '#ef4444'}15`"
+                      x-text="w.order || (i + 1)"></span>
+                <div>
+                  <h3 class="font-display text-2xl font-600 uppercase tracking-wide" x-text="w.name"></h3>
+                  <span x-show="isNext(i)" class="text-[9px] uppercase tracking-[0.15em] text-green-400 mt-0.5">Kovetkezo edzes</span>
+                </div>
+              </div>
               <span class="text-[10px] uppercase tracking-widest text-zinc-600 border border-zinc-700 px-2 py-0.5 rounded" x-text="w.exercises.length + ' gyakorlat'"></span>
             </div>
             <!-- Exercise preview with images -->
@@ -87,9 +102,9 @@
               <button @click="startWorkout(w.id)"
                       :disabled="hasAnyActive"
                       class="w-full py-2.5 text-xs font-medium uppercase tracking-widest rounded transition-all duration-200 border disabled:opacity-30 disabled:cursor-not-allowed"
-                      :style="hasAnyActive ? 'border-color: #3f3f46; color: #52525b' : `border-color: ${w.color || '#ef4444'}40; color: ${w.color || '#ef4444'}`"
+                      :style="isNext(i) ? `border-color: ${w.color || '#ef4444'}; color: ${w.color || '#ef4444'}; background: ${(w.color || '#ef4444')}15` : `border-color: ${(w.color || '#ef4444')}40; color: ${w.color || '#ef4444'}`"
                       @mouseover="if(!hasAnyActive){ $el.style.background = (w.color || '#ef4444'); $el.style.color = '#000' }"
-                      @mouseout="if(!hasAnyActive){ $el.style.background = 'transparent'; $el.style.color = (w.color || '#ef4444') }">
+                      @mouseout="if(!hasAnyActive){ $el.style.background = isNext(i) ? (w.color || '#ef4444') + '15' : 'transparent'; $el.style.color = (w.color || '#ef4444') }">
                 Inditas
               </button>
             </template>
@@ -105,12 +120,14 @@
         workouts: [],
         exerciseImages: {},
         activeSessions: {},
+        nextIndex: 0,
         async init() {
-          const [workouts, active] = await Promise.all([
-            fetch('/api/workouts').then(r => r.json()),
+          const [rotation, active] = await Promise.all([
+            fetch('/api/workouts/rotation').then(r => r.json()),
             fetch('/api/sessions/active').then(r => r.json())
           ]);
-          this.workouts = workouts;
+          this.workouts = rotation.workouts;
+          this.nextIndex = rotation.nextIndex;
           this.activeSessions = Object.fromEntries(active.map(s => [s.workout_id, s]));
           const allExercises = this.workouts.flatMap(w => w.exercises);
           await Promise.all(allExercises.map(ex =>
@@ -124,6 +141,9 @@
         },
         get hasAnyActive() {
           return Object.keys(this.activeSessions).length > 0;
+        },
+        get isNext() {
+          return (index) => index === this.nextIndex && !this.hasAnyActive;
         },
         async startWorkout(workoutId) {
           if (this.hasAnyActive) return;

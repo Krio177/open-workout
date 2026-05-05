@@ -1,5 +1,6 @@
 {
   "id": "chest-day",
+  "order": 1,
   "name": "Mell nap",
   "youtubeUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4",
   "defaultRestSeconds": 90,

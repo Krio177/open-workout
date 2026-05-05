@@ -1,5 +1,6 @@
 {
   "id": "leg-day",
+  "order": 4,
   "name": "Lab nap",
   "youtubeUrl": "https://www.youtube.com/watch?v=zcv6gCPxJCQ",
   "defaultRestSeconds": 90,

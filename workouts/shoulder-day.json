@@ -1,5 +1,6 @@
 {
   "id": "shoulder-day",
+  "order": 3,
   "name": "Vall nap",
   "youtubeUrl": "https://www.youtube.com/watch?v=q5SHPsE6v14",
   "defaultRestSeconds": 75,

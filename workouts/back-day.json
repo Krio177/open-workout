@@ -1,5 +1,6 @@
 {
   "id": "back-day",
+  "order": 2,
   "name": "Hat nap",
   "youtubeUrl": "https://www.youtube.com/watch?v=roCCVZn0rK4",
   "defaultRestSeconds": 90,
