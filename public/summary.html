@@ -37,11 +37,11 @@
     <div class="grid grid-cols-3 gap-3 animate-fade" x-show="summary">
       <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
         <p class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-2">Idotartam</p>
-        <p class="font-display text-2xl font-600" x-text="formatDuration(summary?.session)"></p>
+        <p class="font-display text-2xl font-600" x-text="formatDuration(summary)"></p>
       </div>
       <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
         <p class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-2">Osszes suly</p>
-        <p class="font-display text-2xl font-600" x-text="Math.round(summary?.session?.total_weight || 0) + ' kg'"></p>
+        <p class="font-display text-2xl font-600" x-text="Math.round(summary?.total_weight || 0) + ' kg'"></p>
       </div>
       <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
         <p class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-2">Setek</p>

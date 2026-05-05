@@ -64,7 +64,7 @@
                :class="i === currentExerciseIndex ? 'border-zinc-600' : 'border-zinc-800'">
             <img x-show="allExerciseImages[ex.name]?.length > 0"
                  :src="allExerciseImages[ex.name]?.[0]?.url"
-                 class="w-full h-full object-cover">
+                 class="absolute inset-0 w-full h-full object-cover">
             <img x-show="!(allExerciseImages[ex.name]?.length > 0) && ex.image"
                  :src="ex.image" class="w-6 h-6 transition"
                  :style="`color: ${i === currentExerciseIndex ? (workout?.color || '#ef4444') : '#52525b'}`">
@@ -528,10 +528,11 @@
         },
 
         async finishWorkout(skipConfirm = false) {
+          if (this.finishing) return;
           if (!skipConfirm && !confirm('Befejezed az edzest?')) return;
+          this.finishing = true;
           this.clearAutoAdvance();
           this.stopExerciseTimer();
-          this.finishing = true;
           await fetch(`/api/sessions/${this.sessionId}/finish`, { method: 'PUT' }).then(r => r.json());
           clearInterval(this.elapsedInterval);
           window.location.replace(`/summary.html?id=${this.sessionId}`);
