@@ -52,20 +52,24 @@
     </div>
   </header>
 
-  <div class="max-w-5xl mx-auto p-4 flex flex-col lg:flex-row gap-4">
+  <div class="max-w-5xl mx-auto p-4 flex flex-row gap-4">
 
     <!-- Exercise sidebar -->
-    <div class="lg:w-72 space-y-1 flex-shrink-0">
+    <div class="w-[60px] lg:w-72 space-y-1 flex-shrink-0 transition-all duration-200">
       <template x-for="(ex, i) in workout?.exercises || []" :key="i">
         <div @click="switchExercise(i)"
-             class="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200"
+             class="flex items-center gap-3 px-2 lg:px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200"
              :class="i === currentExerciseIndex ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'">
-          <div class="w-9 h-9 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border transition"
+          <div class="w-9 h-9 rounded bg-zinc-800 flex-shrink-0 border transition overflow-hidden relative flex items-center justify-center"
                :class="i === currentExerciseIndex ? 'border-zinc-600' : 'border-zinc-800'">
-            <img x-show="ex.image" :src="ex.image" class="w-6 h-6 transition"
+            <img x-show="allExerciseImages[ex.name]?.length > 0"
+                 :src="allExerciseImages[ex.name]?.[0]?.url"
+                 class="w-full h-full object-cover">
+            <img x-show="!(allExerciseImages[ex.name]?.length > 0) && ex.image"
+                 :src="ex.image" class="w-6 h-6 transition"
                  :style="`color: ${i === currentExerciseIndex ? (workout?.color || '#ef4444') : '#52525b'}`">
           </div>
-          <div class="flex-1 min-w-0">
+          <div class="flex-1 min-w-0 hidden lg:block">
             <div class="text-sm font-medium truncate" :class="i === currentExerciseIndex ? 'text-zinc-100' : 'text-zinc-500'" x-text="ex.name"></div>
             <div class="text-[10px] uppercase tracking-wider" :class="getCompletedCount(i) > 0 ? 'text-emerald-500' : 'text-zinc-700'" x-text="getCompletedCount(i) + ' kesz'"></div>
           </div>
@@ -75,7 +79,7 @@
       <a x-show="workout?.youtubeUrl" :href="workout?.youtubeUrl" target="_blank"
          class="flex items-center gap-2 mt-4 px-3 py-2 text-zinc-600 hover:text-red-400 transition text-xs">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
-        Tutorial video
+        <span class="hidden lg:inline">Tutorial video</span>
       </a>
     </div>
 
@@ -84,19 +88,61 @@
       <template x-if="currentExercise">
         <div class="space-y-6">
 
-          <!-- Exercise header with image -->
+          <!-- Exercise header with image carousel -->
           <div class="flex items-start gap-6 bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-            <div class="w-20 h-20 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
-              <img x-show="currentExercise.image" :src="currentExercise.image" class="w-14 h-14" :style="`color: ${workout?.color || '#ef4444'}`">
+            <div class="relative w-28 h-28 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700 overflow-hidden group/img">
+              <!-- Uploaded images carousel -->
+              <template x-if="exerciseImages.length > 0">
+                <div class="relative w-full h-full">
+                  <img :src="exerciseImages[carouselIndex]?.url" class="w-full h-full object-contain transition-opacity duration-500">
+                  <!-- Nav arrows -->
+                  <button x-show="exerciseImages.length > 1" @click="prevImage($event)"
+                          class="absolute left-0 top-0 h-full w-1/3 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-start pl-1">
+                    <svg class="w-3 h-3 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+                  <button x-show="exerciseImages.length > 1" @click="nextImage($event)"
+                          class="absolute right-0 top-0 h-full w-1/3 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-end pr-1">
+                    <svg class="w-3 h-3 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                  <!-- Dots -->
+                  <div x-show="exerciseImages.length > 1" class="absolute bottom-1 left-0 right-0 flex justify-center gap-1">
+                    <template x-for="(img, di) in exerciseImages" :key="di">
+                      <div class="w-1 h-1 rounded-full transition" :class="di === carouselIndex ? 'bg-white' : 'bg-white/40'"></div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+              <!-- Fallback SVG icon -->
+              <template x-if="exerciseImages.length === 0">
+                <img x-show="currentExercise.image" :src="currentExercise.image" class="w-14 h-14" :style="`color: ${workout?.color || '#ef4444'}`">
+              </template>
+              <!-- Upload button -->
+              <button @click="$refs.imgPicker.click()"
+                      class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover/img:opacity-100 transition">
+                <svg class="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+              </button>
+              <input type="file" x-ref="imgPicker" accept="image/*" class="hidden" @change="uploadImage($event)">
             </div>
             <div>
-              <h2 class="font-display text-3xl font-600 uppercase tracking-wide" x-text="currentExercise.name"></h2>
+              <div class="flex items-center gap-3">
+                <h2 class="font-display text-3xl font-600 uppercase tracking-wide" x-text="currentExercise.name"></h2>
+                <a x-show="currentExercise.youtubeUrl" :href="currentExercise.youtubeUrl" target="_blank"
+                   class="text-zinc-600 hover:text-red-400 transition flex-shrink-0" title="Tutorial video">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
+                </a>
+              </div>
               <div class="flex items-center gap-3 mt-1">
                 <span class="text-xs uppercase tracking-wider text-zinc-500" x-text="currentExercise.equipment"></span>
-                <template x-if="currentExercise.notes">
-                  <span class="text-xs text-zinc-600" x-text="'— ' + currentExercise.notes"></span>
-                </template>
+                <span class="text-xs tabular-nums text-zinc-600 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <span x-text="formatDuration(exerciseElapsed)"></span>
+                </span>
               </div>
+              <template x-if="currentExercise.notes">
+                <p class="text-sm text-zinc-400 mt-2 leading-relaxed" x-text="currentExercise.notes"></p>
+              </template>
             </div>
           </div>
 
@@ -133,7 +179,7 @@
                    :style="`animation-delay: ${si * 50}ms`">
                 <!-- Check -->
                 <button @click="toggleSet(si)"
-                        :disabled="set.done || set.saving || timerRunning"
+                        :disabled="set.done || set.saving"
                         class="flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200"
                         :class="set.done ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 hover:border-zinc-400'">
                   <svg x-show="set.done" class="w-3.5 h-3.5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,7 +204,6 @@
                 <span x-show="set.isPr" class="text-[10px] uppercase tracking-wider text-amber-400 font-medium">PR</span>
                 <!-- Delete -->
                 <button @click="removeSet(si)"
-                        :disabled="timerRunning"
                         class="ml-auto text-zinc-700 hover:text-red-400 transition disabled:opacity-30">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -167,10 +212,38 @@
               </div>
             </template>
 
-            <!-- Add set -->
+            <!-- Next exercise / Finish button -->
+            <template x-if="allCurrentSetsDone && !timerRunning">
+              <div class="mt-4 animate-slide-in space-y-2">
+                <template x-if="allExercisesDone">
+                  <div>
+                    <button @click="clearAutoAdvance(); finishWorkout()"
+                            class="w-full py-3.5 text-sm font-display font-600 uppercase tracking-widest text-black rounded-lg transition relative overflow-hidden"
+                            :style="`background: ${workout?.color || '#ef4444'}`">
+                      <span x-show="autoAdvanceSeconds > 0" x-text="`Befejezes (${autoAdvanceSeconds}s)`"></span>
+                      <span x-show="autoAdvanceSeconds <= 0">Befejezes</span>
+                    </button>
+                  </div>
+                </template>
+                <template x-if="!allExercisesDone">
+                  <div>
+                    <button @click="goNextExercise()"
+                            class="w-full py-3.5 text-sm font-display font-600 uppercase tracking-widest bg-zinc-800 text-zinc-100 rounded-lg hover:bg-zinc-700 transition">
+                      <span x-show="autoAdvanceSeconds > 0" x-text="`Kovetkezo gyakorlat (${autoAdvanceSeconds}s)`"></span>
+                      <span x-show="autoAdvanceSeconds <= 0">Kovetkezo gyakorlat</span>
+                    </button>
+                    <button x-show="autoAdvanceSeconds > 0" @click="clearAutoAdvance()"
+                            class="w-full py-1.5 text-[10px] uppercase tracking-widest text-zinc-600 hover:text-zinc-400 transition">
+                      Megsem / Maradok
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- Add set (always visible) -->
             <button @click="addSet()"
-                    :disabled="timerRunning"
-                    class="w-full py-2.5 text-[10px] uppercase tracking-[0.2em] text-zinc-700 border border-dashed border-zinc-800 rounded-lg hover:border-zinc-600 hover:text-zinc-400 transition disabled:opacity-30">
+                    class="w-full py-2.5 text-[10px] uppercase tracking-[0.2em] text-zinc-700 border border-dashed border-zinc-800 rounded-lg hover:border-zinc-600 hover:text-zinc-400 transition">
               + Set hozzaadasa
             </button>
           </div>
@@ -188,12 +261,27 @@
         elapsedSeconds: 0, elapsedInterval: null,
         timerSeconds: 0, timerTotal: 0, timerRunning: false, timerInterval: null,
         showPrToast: false, finishing: false, ready: false,
+        exerciseImages: [], carouselIndex: 0, carouselInterval: null, uploading: false,
+        allExerciseImages: {},
+        autoAdvanceSeconds: 0, autoAdvanceInterval: null,
+        exerciseTimes: {}, exerciseStartedAt: null, exerciseElapsed: 0, exerciseTimerInterval: null,
 
         get currentExercise() { return this.workout?.exercises?.[this.currentExerciseIndex]; },
         get exerciseSets() {
           const ex = this.currentExercise;
           if (!ex) return [];
           return this.allSets[ex.name] || [];
+        },
+        get allCurrentSetsDone() {
+          const sets = this.exerciseSets;
+          return sets.length > 0 && sets.every(s => s.done);
+        },
+        get allExercisesDone() {
+          if (!this.workout) return false;
+          return this.workout.exercises.every(ex => {
+            const sets = this.allSets[ex.name] || [];
+            return sets.length > 0 && sets.every(s => s.done);
+          });
         },
 
         async init() {
@@ -231,18 +319,112 @@
             }
           }
 
+          await Promise.all(this.workout.exercises.map(ex =>
+            fetch(`/api/exercises/${encodeURIComponent(ex.name)}/images`).then(r => r.json())
+              .then(data => { this.allExerciseImages[ex.name] = data.images || []; })
+          ));
+
           this.ready = true;
           const start = new Date(this.session.started_at);
           this.elapsedSeconds = Math.floor((Date.now() - start.getTime()) / 1000);
           this.elapsedInterval = setInterval(() => this.elapsedSeconds++, 1000);
+          this.loadExerciseImages();
+
+          // Load saved exercise times and start tracking
+          for (const et of (sessionRes.exercise_times || [])) {
+            this.exerciseTimes[et.exercise_name] = et.duration_seconds;
+          }
+          this.startExerciseTimer();
         },
 
-        switchExercise(i) { this.currentExerciseIndex = i; },
+        switchExercise(i) {
+          this.clearAutoAdvance();
+          this.stopExerciseTimer();
+          this.currentExerciseIndex = i;
+          this.startExerciseTimer();
+          this.loadExerciseImages();
+        },
+
+        async loadExerciseImages() {
+          clearInterval(this.carouselInterval);
+          this.carouselIndex = 0;
+          if (!this.currentExercise) { this.exerciseImages = []; return; }
+          const slug = this.slugify(this.currentExercise.name);
+          const res = await fetch(`/api/exercises/${encodeURIComponent(this.currentExercise.name)}/images`).then(r => r.json());
+          this.exerciseImages = res.images || [];
+          if (this.exerciseImages.length > 1) this.startCarousel();
+        },
+
+        startCarousel() {
+          clearInterval(this.carouselInterval);
+          this.carouselInterval = setInterval(() => {
+            this.carouselIndex = (this.carouselIndex + 1) % this.exerciseImages.length;
+          }, 10000);
+        },
+
+        prevImage(e) {
+          e?.stopPropagation();
+          clearInterval(this.carouselInterval);
+          this.carouselIndex = (this.carouselIndex - 1 + this.exerciseImages.length) % this.exerciseImages.length;
+          if (this.exerciseImages.length > 1) this.startCarousel();
+        },
+
+        nextImage(e) {
+          e?.stopPropagation();
+          clearInterval(this.carouselInterval);
+          this.carouselIndex = (this.carouselIndex + 1) % this.exerciseImages.length;
+          if (this.exerciseImages.length > 1) this.startCarousel();
+        },
+
+        async uploadImage(event) {
+          const file = event.target.files[0];
+          if (!file || !this.currentExercise) return;
+          this.uploading = true;
+          const formData = new FormData();
+          formData.append('image', file);
+          await fetch(`/api/upload/${encodeURIComponent(this.currentExercise.name)}`, {
+            method: 'POST', body: formData
+          });
+          event.target.value = '';
+          await this.loadExerciseImages();
+          this.uploading = false;
+        },
+
+        slugify(name) {
+          return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        },
 
         addSet() {
           const ex = this.currentExercise; if (!ex) return;
           const sets = this.allSets[ex.name]; const last = sets[sets.length - 1];
           sets.push({ weight: last ? last.weight : (ex.defaultWeight || 0), reps: last ? last.reps : (ex.defaultReps || 0), done: false, saved: false, isPr: false, saving: false });
+        },
+
+        goNextExercise() {
+          this.clearAutoAdvance();
+          this.skipRest();
+          const next = this.currentExerciseIndex + 1;
+          if (next < this.workout.exercises.length) this.switchExercise(next);
+        },
+
+        startAutoAdvance() {
+          clearInterval(this.autoAdvanceInterval);
+          this.autoAdvanceSeconds = 5;
+          this.autoAdvanceInterval = setInterval(() => {
+            this.autoAdvanceSeconds--;
+            if (this.autoAdvanceSeconds <= 0) {
+              clearInterval(this.autoAdvanceInterval);
+              this.autoAdvanceInterval = null;
+              if (this.allExercisesDone) this.finishWorkout(true);
+              else this.goNextExercise();
+            }
+          }, 1000);
+        },
+
+        clearAutoAdvance() {
+          clearInterval(this.autoAdvanceInterval);
+          this.autoAdvanceInterval = null;
+          this.autoAdvanceSeconds = 0;
         },
 
         async toggleSet(si) {
@@ -257,8 +439,17 @@
 
           set.done = true; set.saved = true; set.saving = false; set.isPr = res.isNewPr; set.id = res.set.id;
           if (res.isNewPr) { this.showPrToast = true; setTimeout(() => this.showPrToast = false, 3000); }
-          if (si === this.allSets[ex.name].length - 1) this.addSet();
-          this.startRest(ex.restSeconds || this.workout.defaultRestSeconds || 90);
+
+          // If all sets for this exercise are done, auto-advance to next exercise immediately
+          if (this.allCurrentSetsDone) {
+            if (this.allExercisesDone) {
+              this.finishWorkout(false);
+            } else {
+              this.goNextExercise();
+            }
+          } else {
+            this.startRest(ex.restSeconds || this.workout.defaultRestSeconds || 90);
+          }
         },
 
         getCompletedCount(i) {
@@ -273,15 +464,45 @@
           if (sets.length === 0) sets.push({ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false });
         },
 
-        startRest(s) { this.timerSeconds = s; this.timerTotal = s; this.timerRunning = true; this.timerInterval = setInterval(() => { this.timerSeconds--; if (this.timerSeconds <= 0) this.endRest(); }, 1000); },
+        startExerciseTimer() {
+          const ex = this.currentExercise;
+          if (!ex) return;
+          this.exerciseStartedAt = Date.now();
+          this.exerciseElapsed = this.exerciseTimes[ex.name] || 0;
+          clearInterval(this.exerciseTimerInterval);
+          this.exerciseTimerInterval = setInterval(() => {
+            this.exerciseElapsed = (this.exerciseTimes[ex.name] || 0) + Math.floor((Date.now() - this.exerciseStartedAt) / 1000);
+          }, 1000);
+        },
+
+        stopExerciseTimer() {
+          clearInterval(this.exerciseTimerInterval);
+          const ex = this.currentExercise;
+          if (!ex || !this.exerciseStartedAt) return;
+          this.exerciseTimes[ex.name] = (this.exerciseTimes[ex.name] || 0) + Math.floor((Date.now() - this.exerciseStartedAt) / 1000);
+          this.exerciseStartedAt = null;
+          this.saveExerciseTime(ex.name, this.exerciseTimes[ex.name]);
+        },
+
+        async saveExerciseTime(name, seconds) {
+          fetch(`/api/sessions/${this.sessionId}/exercise-time`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exercise_name: name, duration_seconds: seconds })
+          });
+        },
+
+        startRest(s) { clearInterval(this.timerInterval); this.timerSeconds = s; this.timerTotal = s; this.timerRunning = true; this.timerInterval = setInterval(() => { this.timerSeconds--; if (this.timerSeconds <= 0) this.endRest(); }, 1000); },
         skipRest() { clearInterval(this.timerInterval); this.endRest(); },
         endRest() {
           clearInterval(this.timerInterval); this.timerRunning = false;
           try { const ctx = new AudioContext(); const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value = 880; g.gain.value = 0.3; o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 300); } catch (e) {}
+          if (this.allCurrentSetsDone) this.startAutoAdvance();
         },
 
-        async finishWorkout() {
-          if (!confirm('Befejezed az edzest?')) return;
+        async finishWorkout(skipConfirm = false) {
+          if (!skipConfirm && !confirm('Befejezed az edzest?')) return;
+          this.clearAutoAdvance();
+          this.stopExerciseTimer();
           this.finishing = true;
           await fetch(`/api/sessions/${this.sessionId}/finish`, { method: 'PUT' }).then(r => r.json());
           clearInterval(this.elapsedInterval);

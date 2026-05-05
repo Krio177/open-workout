@@ -2,11 +2,21 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import pool from './db/client.js';
+import pool, { connect } from './db/client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// --- Slugify helper ---
+function slugify(name) {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 // --- Workout definitions loader ---
 const workouts = new Map();
@@ -35,6 +45,59 @@ const app = new Hono();
 // Static files
 app.use('/*', serveStatic({ root: './public' }));
 
+// --- Exercise image upload ---
+const EXERCISE_IMAGES_DIR = path.join(__dirname, 'public', 'images', 'exercises');
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+app.post('/api/upload/:exerciseName', async (c) => {
+  const slug = slugify(c.req.param('exerciseName'));
+  const dir = path.join(EXERCISE_IMAGES_DIR, slug);
+  fsSync.mkdirSync(dir, { recursive: true });
+
+  const body = await c.req.parseBody();
+  const file = body['image'];
+  if (!file || !(file instanceof File)) return c.json({ error: 'No image provided' }, 400);
+  if (!ALLOWED_TYPES.includes(file.type)) return c.json({ error: 'Invalid file type' }, 400);
+  if (file.size > MAX_SIZE) return c.json({ error: 'File too large (max 10MB)' }, 400);
+
+  const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
+  const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]/gi, '_');
+  let filename = `${baseName}.${ext}`;
+  let filePath = path.join(dir, filename);
+  let counter = 1;
+  while (fsSync.existsSync(filePath)) {
+    filename = `${baseName}_${counter++}.${ext}`;
+    filePath = path.join(dir, filename);
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  fsSync.writeFileSync(filePath, buffer);
+
+  return c.json({ filename, url: `/images/exercises/${slug}/${filename}` }, 201);
+});
+
+app.delete('/api/upload/:exerciseName/:filename', async (c) => {
+  const slug = slugify(c.req.param('exerciseName'));
+  const filePath = path.join(EXERCISE_IMAGES_DIR, slug, c.req.param('filename'));
+  if (!filePath.startsWith(EXERCISE_IMAGES_DIR)) return c.json({ error: 'Invalid path' }, 400);
+  if (!fsSync.existsSync(filePath)) return c.json({ error: 'File not found' }, 404);
+  fsSync.unlinkSync(filePath);
+  return c.json({ ok: true });
+});
+
+app.get('/api/exercises/:exerciseName/images', async (c) => {
+  const slug = slugify(c.req.param('exerciseName'));
+  const dir = path.join(EXERCISE_IMAGES_DIR, slug);
+  if (!fsSync.existsSync(dir)) return c.json({ images: [] });
+  const files = await fs.readdir(dir);
+  const images = files
+    .filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f))
+    .sort()
+    .map(f => ({ filename: f, url: `/images/exercises/${slug}/${f}` }));
+  return c.json({ images });
+});
+
 // --- Workout definition endpoints ---
 app.get('/api/workouts', (c) => {
   return c.json([...workouts.values()]);
@@ -59,17 +122,40 @@ app.post('/api/sessions', async (c) => {
   return c.json(res.rows[0], 201);
 });
 
+// Static routes BEFORE parameterized ones to avoid route shadowing
+app.get('/api/sessions/active', async (c) => {
+  const res = await pool.query(
+    `SELECT * FROM workout_sessions WHERE finished_at IS NULL ORDER BY started_at DESC`
+  );
+  return c.json(res.rows);
+});
+
+app.get('/api/sessions', async (c) => {
+  const from = c.req.query('from') || '2000-01-01';
+  const to = c.req.query('to') || '2099-12-31';
+  const res = await pool.query(
+    `SELECT s.*, COUNT(es.id) as set_count
+     FROM workout_sessions s
+     LEFT JOIN exercise_sets es ON es.session_id = s.id
+     WHERE s.started_at >= $1 AND s.started_at <= $2
+     GROUP BY s.id
+     ORDER BY s.started_at DESC`,
+    [from, to]
+  );
+  return c.json(res.rows);
+});
+
 app.get('/api/sessions/:id', async (c) => {
   const id = c.req.param('id');
   const sessionRes = await pool.query(
     'SELECT * FROM workout_sessions WHERE id = $1', [id]
   );
   if (sessionRes.rows.length === 0) return c.json({ error: 'Session not found' }, 404);
-  const setsRes = await pool.query(
-    'SELECT * FROM exercise_sets WHERE session_id = $1 ORDER BY exercise_order, set_number',
-    [id]
-  );
-  return c.json({ ...sessionRes.rows[0], sets: setsRes.rows });
+  const [setsRes, timesRes] = await Promise.all([
+    pool.query('SELECT * FROM exercise_sets WHERE session_id = $1 ORDER BY exercise_order, set_number', [id]),
+    pool.query('SELECT * FROM exercise_times WHERE session_id = $1', [id])
+  ]);
+  return c.json({ ...sessionRes.rows[0], sets: setsRes.rows, exercise_times: timesRes.rows });
 });
 
 app.put('/api/sessions/:id/finish', async (c) => {
@@ -85,15 +171,13 @@ app.put('/api/sessions/:id/finish', async (c) => {
   );
   if (res.rows.length === 0) return c.json({ error: 'Session not found or already finished' }, 400);
 
-  const setsRes = await pool.query(
-    'SELECT * FROM exercise_sets WHERE session_id = $1 ORDER BY exercise_order, set_number',
-    [id]
-  );
-  const prRes = await pool.query(
-    'SELECT pr.* FROM personal_records pr WHERE pr.session_id = $1', [id]
-  );
+  const [setsRes, prRes, timesRes] = await Promise.all([
+    pool.query('SELECT * FROM exercise_sets WHERE session_id = $1 ORDER BY exercise_order, set_number', [id]),
+    pool.query('SELECT pr.* FROM personal_records pr WHERE pr.session_id = $1', [id]),
+    pool.query('SELECT * FROM exercise_times WHERE session_id = $1', [id])
+  ]);
 
-  return c.json({ session: res.rows[0], sets: setsRes.rows, newPrs: prRes.rows });
+  return c.json({ session: res.rows[0], sets: setsRes.rows, newPrs: prRes.rows, exercise_times: timesRes.rows });
 });
 
 app.delete('/api/sessions/:id', async (c) => {
@@ -101,20 +185,19 @@ app.delete('/api/sessions/:id', async (c) => {
   return c.json({ ok: true });
 });
 
-// --- History (date range) ---
-app.get('/api/sessions', async (c) => {
-  const from = c.req.query('from') || '2000-01-01';
-  const to = c.req.query('to') || '2099-12-31';
+// --- Exercise time tracking ---
+app.put('/api/sessions/:id/exercise-time', async (c) => {
+  const sessionId = c.req.param('id');
+  const { exercise_name, duration_seconds } = await c.req.json();
   const res = await pool.query(
-    `SELECT s.*, COUNT(es.id) as set_count
-     FROM workout_sessions s
-     LEFT JOIN exercise_sets es ON es.session_id = s.id
-     WHERE s.started_at >= $1 AND s.started_at <= $2
-     GROUP BY s.id
-     ORDER BY s.started_at DESC`,
-    [from, to]
+    `INSERT INTO exercise_times (session_id, exercise_name, duration_seconds)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (session_id, exercise_name)
+     DO UPDATE SET duration_seconds = $3
+     RETURNING *`,
+    [sessionId, exercise_name, Math.round(duration_seconds)]
   );
-  return c.json(res.rows);
+  return c.json(res.rows[0]);
 });
 
 // --- Set logging with PR detection ---
@@ -201,6 +284,7 @@ app.get('/api/prs', async (c) => {
 // --- Start ---
 const port = process.env.PORT || 3000;
 
+await connect();
 await loadWorkouts();
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Server running on http://localhost:${info.port}`);

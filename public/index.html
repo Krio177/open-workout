@@ -54,20 +54,45 @@
             <div class="space-y-2 mb-6">
               <template x-for="ex in w.exercises" :key="ex.order">
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0" :style="ex.image ? '' : ''">
-                    <img x-show="ex.image" :src="ex.image" class="w-6 h-6 opacity-60 group-hover:opacity-100 transition" :style="`color: ${w.color || '#ef4444'}`">
-                    <span x-show="!ex.image" class="text-[10px] text-zinc-600 font-medium" x-text="ex.order"></span>
+                  <div class="w-8 h-8 rounded bg-zinc-800 flex-shrink-0 overflow-hidden relative flex items-center justify-center">
+                    <img x-show="exerciseImages[ex.name]?.length > 0"
+                         :src="exerciseImages[ex.name]?.[0]?.url"
+                         class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition">
+                    <img x-show="!(exerciseImages[ex.name]?.length > 0) && ex.image"
+                         :src="ex.image" class="w-6 h-6 opacity-60 group-hover:opacity-100 transition"
+                         :style="`color: ${w.color || '#ef4444'}`">
+                    <span x-show="!(exerciseImages[ex.name]?.length > 0) && !ex.image"
+                          class="text-[10px] text-zinc-600 font-medium" x-text="ex.order"></span>
                   </div>
                   <span class="text-sm text-zinc-500 group-hover:text-zinc-300 transition" x-text="ex.name"></span>
                 </div>
               </template>
             </div>
-            <button class="w-full py-2.5 text-xs font-medium uppercase tracking-widest rounded transition-all duration-200 border"
-                    :style="`border-color: ${w.color || '#ef4444'}40; color: ${w.color || '#ef4444'}`"
-                    @mouseover="$el.style.background = (w.color || '#ef4444'); $el.style.color = '#000'"
-                    @mouseout="$el.style.background = 'transparent'; $el.style.color = (w.color || '#ef4444')">
-              Inditas
-            </button>
+            <template x-if="activeSessions[w.id]">
+              <div class="space-y-2">
+                <div class="flex items-center gap-2 text-[10px] uppercase tracking-widest text-amber-400">
+                  <div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+                  Folyamatban
+                </div>
+                <button @click="resumeWorkout(w.id)"
+                        class="w-full py-2.5 text-xs font-medium uppercase tracking-widest rounded transition-all duration-200 border"
+                        :style="`border-color: ${w.color || '#ef4444'}; color: ${w.color || '#ef4444'}; background: ${w.color || '#ef4444'}15`"
+                        @mouseover="$el.style.background = (w.color || '#ef4444'); $el.style.color = '#000'"
+                        @mouseout="$el.style.background = (w.color || '#ef4444') + '15'; $el.style.color = (w.color || '#ef4444')">
+                  Folytatás
+                </button>
+              </div>
+            </template>
+            <template x-if="!activeSessions[w.id]">
+              <button @click="startWorkout(w.id)"
+                      :disabled="hasAnyActive"
+                      class="w-full py-2.5 text-xs font-medium uppercase tracking-widest rounded transition-all duration-200 border disabled:opacity-30 disabled:cursor-not-allowed"
+                      :style="hasAnyActive ? 'border-color: #3f3f46; color: #52525b' : `border-color: ${w.color || '#ef4444'}40; color: ${w.color || '#ef4444'}`"
+                      @mouseover="if(!hasAnyActive){ $el.style.background = (w.color || '#ef4444'); $el.style.color = '#000' }"
+                      @mouseout="if(!hasAnyActive){ $el.style.background = 'transparent'; $el.style.color = (w.color || '#ef4444') }">
+                Inditas
+              </button>
+            </template>
           </div>
         </div>
       </template>
@@ -78,10 +103,30 @@
     function dashboardApp() {
       return {
         workouts: [],
+        exerciseImages: {},
+        activeSessions: {},
         async init() {
-          this.workouts = await fetch('/api/workouts').then(r => r.json());
+          const [workouts, active] = await Promise.all([
+            fetch('/api/workouts').then(r => r.json()),
+            fetch('/api/sessions/active').then(r => r.json())
+          ]);
+          this.workouts = workouts;
+          this.activeSessions = Object.fromEntries(active.map(s => [s.workout_id, s]));
+          const allExercises = this.workouts.flatMap(w => w.exercises);
+          await Promise.all(allExercises.map(ex =>
+            fetch(`/api/exercises/${encodeURIComponent(ex.name)}/images`).then(r => r.json())
+              .then(data => { this.exerciseImages[ex.name] = data.images || []; })
+          ));
+        },
+        resumeWorkout(workoutId) {
+          const session = this.activeSessions[workoutId];
+          if (session) window.location.href = `/workout.html?id=${session.id}`;
+        },
+        get hasAnyActive() {
+          return Object.keys(this.activeSessions).length > 0;
         },
         async startWorkout(workoutId) {
+          if (this.hasAnyActive) return;
           const res = await fetch('/api/sessions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

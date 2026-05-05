@@ -1,4 +1,4 @@
-CREATE TABLE workout_sessions (
+CREATE TABLE IF NOT EXISTS workout_sessions (
     id            SERIAL PRIMARY KEY,
     workout_id    TEXT NOT NULL,
     started_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -7,7 +7,7 @@ CREATE TABLE workout_sessions (
     notes         TEXT
 );
 
-CREATE TABLE exercise_sets (
+CREATE TABLE IF NOT EXISTS exercise_sets (
     id              SERIAL PRIMARY KEY,
     session_id      INTEGER NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
     exercise_name   TEXT NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE exercise_sets (
     completed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE personal_records (
+CREATE TABLE IF NOT EXISTS personal_records (
     id            SERIAL PRIMARY KEY,
     exercise_name TEXT NOT NULL,
     equipment     TEXT NOT NULL,
@@ -30,6 +30,15 @@ CREATE TABLE personal_records (
     UNIQUE(exercise_name, equipment)
 );
 
-CREATE INDEX idx_sessions_started ON workout_sessions(started_at DESC);
-CREATE INDEX idx_sets_session ON exercise_sets(session_id);
-CREATE INDEX idx_sessions_workout ON workout_sessions(workout_id);
+CREATE TABLE IF NOT EXISTS exercise_times (
+    id                SERIAL PRIMARY KEY,
+    session_id        INTEGER NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+    exercise_name     TEXT NOT NULL,
+    duration_seconds  INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(session_id, exercise_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_started ON workout_sessions(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sets_session ON exercise_sets(session_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_workout ON workout_sessions(workout_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_times_session ON exercise_times(session_id);
