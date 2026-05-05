@@ -402,7 +402,6 @@
 
         goNextExercise() {
           this.clearAutoAdvance();
-          this.skipRest();
           const next = this.currentExerciseIndex + 1;
           if (next < this.workout.exercises.length) this.switchExercise(next);
         },
@@ -440,12 +439,12 @@
           set.done = true; set.saved = true; set.saving = false; set.isPr = res.isNewPr; set.id = res.set.id;
           if (res.isNewPr) { this.showPrToast = true; setTimeout(() => this.showPrToast = false, 3000); }
 
-          // If all sets for this exercise are done, auto-advance to next exercise immediately
+          // If all sets for this exercise are done, auto-advance with delay
           if (this.allCurrentSetsDone) {
             if (this.allExercisesDone) {
               this.finishWorkout(false);
             } else {
-              this.goNextExercise();
+              setTimeout(() => this.goNextExercise(), 2000);
             }
           } else {
             this.startRest(ex.restSeconds || this.workout.defaultRestSeconds || 90);
@@ -491,11 +490,40 @@
           });
         },
 
-        startRest(s) { clearInterval(this.timerInterval); this.timerSeconds = s; this.timerTotal = s; this.timerRunning = true; this.timerInterval = setInterval(() => { this.timerSeconds--; if (this.timerSeconds <= 0) this.endRest(); }, 1000); },
+        beep(count = 1) {
+          try {
+            const ctx = new AudioContext();
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.value = 880; g.gain.value = 0.3;
+            o.start();
+            const dur = 150;
+            setTimeout(() => { o.stop(); ctx.close(); }, dur);
+            for (let i = 1; i < count; i++) {
+              setTimeout(() => {
+                const c2 = new AudioContext();
+                const o2 = c2.createOscillator(); const g2 = c2.createGain();
+                o2.connect(g2); g2.connect(c2.destination);
+                o2.frequency.value = 880; g2.gain.value = 0.3;
+                o2.start();
+                setTimeout(() => { o2.stop(); c2.close(); }, dur);
+              }, i * 300);
+            }
+          } catch (e) {}
+        },
+        startRest(s) {
+          clearInterval(this.timerInterval); this.timerSeconds = s; this.timerTotal = s; this.timerRunning = true;
+          this.timerInterval = setInterval(() => {
+            this.timerSeconds--;
+            if (this.timerSeconds === 10) this.beep(1);
+            if (this.timerSeconds === 5) this.beep(2);
+            if (this.timerSeconds <= 0) this.endRest();
+          }, 1000);
+        },
         skipRest() { clearInterval(this.timerInterval); this.endRest(); },
         endRest() {
           clearInterval(this.timerInterval); this.timerRunning = false;
-          try { const ctx = new AudioContext(); const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value = 880; g.gain.value = 0.3; o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 300); } catch (e) {}
+          this.beep(3);
           if (this.allCurrentSetsDone) this.startAutoAdvance();
         },
 
@@ -506,7 +534,7 @@
           this.finishing = true;
           await fetch(`/api/sessions/${this.sessionId}/finish`, { method: 'PUT' }).then(r => r.json());
           clearInterval(this.elapsedInterval);
-          window.location.href = `/summary.html?id=${this.sessionId}`;
+          window.location.replace(`/summary.html?id=${this.sessionId}`);
         },
         async discardWorkout() {
           if (!confirm('Eldobod az egesz edzest?')) return;

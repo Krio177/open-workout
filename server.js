@@ -103,13 +103,7 @@ app.get('/api/workouts', (c) => {
   return c.json([...workouts.values()]);
 });
 
-app.get('/api/workouts/:id', (c) => {
-  const w = workouts.get(c.req.param('id'));
-  if (!w) return c.json({ error: 'Workout not found' }, 404);
-  return c.json(w);
-});
-
-// --- Workout rotation ---
+// --- Workout rotation (must be before :id to avoid matching "rotation" as id) ---
 app.get('/api/workouts/rotation', async (c) => {
   const list = [...workouts.values()]
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
@@ -130,6 +124,12 @@ app.get('/api/workouts/rotation', async (c) => {
   }
 
   return c.json({ workouts: list, nextIndex });
+});
+
+app.get('/api/workouts/:id', (c) => {
+  const w = workouts.get(c.req.param('id'));
+  if (!w) return c.json({ error: 'Workout not found' }, 404);
+  return c.json(w);
 });
 
 // --- Session endpoints ---
