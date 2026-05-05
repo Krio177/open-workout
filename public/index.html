@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Open Workout</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -65,23 +67,29 @@
               </div>
               <span class="text-[10px] uppercase tracking-widest text-zinc-600 border border-zinc-700 px-2 py-0.5 rounded" x-text="w.exercises.length + ' gyakorlat'"></span>
             </div>
-            <!-- Exercise preview with images -->
-            <div class="space-y-2 mb-6">
-              <template x-for="ex in w.exercises" :key="ex.order">
-                <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded bg-zinc-800 flex-shrink-0 overflow-hidden relative flex items-center justify-center">
-                    <img x-show="exerciseImages[ex.name]?.length > 0"
-                         :src="exerciseImages[ex.name]?.[0]?.url"
-                         class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition">
-                    <img x-show="!(exerciseImages[ex.name]?.length > 0) && ex.image"
-                         :src="ex.image" class="w-6 h-6 opacity-60 group-hover:opacity-100 transition"
-                         :style="`color: ${w.color || '#ef4444'}`">
-                    <span x-show="!(exerciseImages[ex.name]?.length > 0) && !ex.image"
-                          class="text-[10px] text-zinc-600 font-medium" x-text="ex.order"></span>
+            <!-- Exercise preview (collapsible) -->
+            <div x-data="{ open: false }" class="mb-6">
+              <button @click.stop="open = !open" class="flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition mb-2">
+                <svg :class="open && 'rotate-90'" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                Gyakorlatok
+              </button>
+              <div x-show="open" x-collapse class="space-y-2">
+                <template x-for="ex in w.exercises" :key="ex.order">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded bg-zinc-800 flex-shrink-0 overflow-hidden relative flex items-center justify-center">
+                      <img x-show="exerciseImages[ex.name]?.length > 0"
+                           :src="exerciseImages[ex.name]?.[0]?.url"
+                           class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition">
+                      <img x-show="!(exerciseImages[ex.name]?.length > 0) && ex.image"
+                           :src="ex.image" class="w-6 h-6 opacity-60 group-hover:opacity-100 transition"
+                           :style="`color: ${w.color || '#ef4444'}`">
+                      <span x-show="!(exerciseImages[ex.name]?.length > 0) && !ex.image"
+                            class="text-[10px] text-zinc-600 font-medium" x-text="ex.order"></span>
+                    </div>
+                    <span class="text-sm text-zinc-500 group-hover:text-zinc-300 transition" x-text="ex.name"></span>
                   </div>
-                  <span class="text-sm text-zinc-500 group-hover:text-zinc-300 transition" x-text="ex.name"></span>
-                </div>
-              </template>
+                </template>
+              </div>
             </div>
             <template x-if="activeSessions[w.id]">
               <div class="space-y-2">
@@ -112,6 +120,31 @@
         </div>
       </template>
     </div>
+
+    <!-- Stats section -->
+    <div class="mt-14" x-show="stats">
+      <div class="flex items-center gap-3 mb-6">
+        <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-zinc-600">Statisztikak</h2>
+        <div class="flex-1 h-px bg-zinc-800"></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Weekly activity -->
+        <div class="border border-zinc-800 rounded-lg p-5 bg-zinc-900/80">
+          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 mb-4">Heti edzesek</h3>
+          <div class="h-48"><canvas id="chartWeekly"></canvas></div>
+        </div>
+        <!-- Volume progression -->
+        <div class="border border-zinc-800 rounded-lg p-5 bg-zinc-900/80">
+          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 mb-4">Osszsuly (kg)</h3>
+          <div class="h-48"><canvas id="chartVolume"></canvas></div>
+        </div>
+        <!-- Workout distribution -->
+        <div class="border border-zinc-800 rounded-lg p-5 bg-zinc-900/80">
+          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 mb-4">Edzes tipusok</h3>
+          <div class="h-48 flex items-center justify-center"><canvas id="chartDist"></canvas></div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -121,6 +154,7 @@
         exerciseImages: {},
         activeSessions: {},
         nextIndex: 0,
+        stats: null,
         async init() {
           const [rotation, active] = await Promise.all([
             fetch('/api/workouts/rotation').then(r => r.json()),
@@ -134,6 +168,89 @@
             fetch(`/api/exercises/${encodeURIComponent(ex.name)}/images`).then(r => r.json())
               .then(data => { this.exerciseImages[ex.name] = data.images || []; })
           ));
+          // Load stats
+          this.stats = await fetch('/api/stats').then(r => r.json());
+          this.$nextTick(() => this.renderCharts());
+        },
+        renderCharts() {
+          if (!this.stats) return;
+          const gridColor = '#27272a';
+          const textColor = '#71717a';
+          const defaults = Chart.defaults;
+          defaults.color = textColor;
+          defaults.font.family = "'IBM Plex Mono', monospace";
+          defaults.font.size = 10;
+
+          // Weekly activity bar chart
+          const wk = this.stats.weekly;
+          new Chart(document.getElementById('chartWeekly'), {
+            type: 'bar',
+            data: {
+              labels: wk.map(r => { const d = new Date(r.week); return `${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; }),
+              datasets: [{
+                data: wk.map(r => Number(r.count)),
+                backgroundColor: '#ef444480',
+                borderColor: '#ef4444',
+                borderWidth: 1,
+                borderRadius: 3
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                y: { grid: { color: gridColor }, ticks: { color: textColor, stepSize: 1 }, beginAtZero: true }
+              }
+            }
+          });
+
+          // Volume line chart
+          const vol = this.stats.volume;
+          new Chart(document.getElementById('chartVolume'), {
+            type: 'line',
+            data: {
+              labels: vol.map(r => { const d = new Date(r.date); return `${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; }),
+              datasets: [{
+                data: vol.map(r => Number(r.total_weight)),
+                borderColor: '#22c55e',
+                backgroundColor: '#22c55e20',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: '#22c55e'
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                y: { grid: { color: gridColor }, ticks: { color: textColor } }
+              }
+            }
+          });
+
+          // Distribution doughnut
+          const dist = this.stats.distribution;
+          new Chart(document.getElementById('chartDist'), {
+            type: 'doughnut',
+            data: {
+              labels: dist.map(r => r.name),
+              datasets: [{
+                data: dist.map(r => Number(r.count)),
+                backgroundColor: dist.map(r => r.color + '99'),
+                borderColor: dist.map(r => r.color),
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'right', labels: { color: textColor, padding: 12, font: { size: 10 } } }
+              }
+            }
+          });
         },
         resumeWorkout(workoutId) {
           const session = this.activeSessions[workoutId];

@@ -307,6 +307,48 @@ app.get('/api/workouts/:id/last-session', async (c) => {
   return c.json({ sessionId: sessionRes.rows[0].id, sets: setsRes.rows });
 });
 
+// --- Dashboard stats ---
+app.get('/api/stats', async (c) => {
+  const [weekly, volume, distribution] = await Promise.all([
+    // Workouts per week (last 8 weeks)
+    pool.query(`
+      SELECT date_trunc('week', started_at)::date as week,
+             COUNT(*) as count
+      FROM workout_sessions
+      WHERE finished_at IS NOT NULL
+        AND started_at >= NOW() - INTERVAL '8 weeks'
+      GROUP BY week ORDER BY week
+    `),
+    // Total weight per session (last 20 finished sessions)
+    pool.query(`
+      SELECT id, workout_id, started_at::date as date, total_weight
+      FROM workout_sessions
+      WHERE finished_at IS NOT NULL AND total_weight > 0
+      ORDER BY started_at DESC LIMIT 20
+    `),
+    // Workout type distribution (all time)
+    pool.query(`
+      SELECT workout_id, COUNT(*) as count
+      FROM workout_sessions
+      WHERE finished_at IS NOT NULL
+      GROUP BY workout_id ORDER BY count DESC
+    `)
+  ]);
+
+  // Enrich distribution with workout names
+  const dist = distribution.rows.map(r => ({
+    ...r,
+    name: workouts.get(r.workout_id)?.name || r.workout_id,
+    color: workouts.get(r.workout_id)?.color || '#ef4444'
+  }));
+
+  return c.json({
+    weekly: weekly.rows,
+    volume: volume.rows.reverse(),
+    distribution: dist
+  });
+});
+
 // --- Personal records ---
 app.get('/api/prs', async (c) => {
   const res = await pool.query('SELECT * FROM personal_records ORDER BY exercise_name');
