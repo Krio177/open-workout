@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edzes — Open Workout</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -172,6 +173,19 @@
             </div>
           </div>
 
+          <!-- Exercise history -->
+          <template x-if="currentExercise && exerciseHistory[currentExercise.name]?.length > 0">
+            <div class="space-y-1">
+              <button @click="historyVisible = !historyVisible"
+                      class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 hover:text-zinc-400 transition">
+                <span x-text="historyVisible ? 'Elozmeny ▲' : 'Elozmeny ▼'"></span>
+              </button>
+              <div x-show="historyVisible" x-transition class="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                <canvas class="w-full" style="height:120px" :id="'hist-' + currentExercise.name.replace(/\s/g, '-')"></canvas>
+              </div>
+            </div>
+          </template>
+
           <!-- Rest timer -->
           <div x-show="timerRunning" class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 text-center space-y-3 rest-pulse">
             <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Piheno</p>
@@ -203,7 +217,12 @@
               <div @click="toggleSet(si)"
                    @mousedown="startDrag($event, si)" @touchstart="startDrag($event, si)"
                    class="animate-slide-in flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-200 cursor-pointer select-none relative overflow-hidden"
-                   :class="set.done ? 'bg-emerald-950/30 border-emerald-800/50' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'"
+                   :class="[
+                     set.done
+                       ? (set.isWarmup ? 'bg-amber-950/20 border-amber-800/30' : 'bg-emerald-950/30 border-emerald-800/50')
+                       : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700',
+                     set.isWarmup && !set.done && 'opacity-70'
+                   ]"
                    :style="`animation-delay: ${si * 50}ms; transform: translateX(${set._dragX || 0}px)`">
                 <!-- Drag weight indicator -->
                 <div x-show="set._dragDelta" class="absolute inset-0 flex items-center pointer-events-none z-10"
@@ -214,13 +233,18 @@
                 </div>
                 <!-- Check -->
                 <div class="flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200 pointer-events-none"
-                     :class="set.done ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'">
+                     :class="set.done
+                       ? (set.isWarmup ? 'bg-amber-500 border-amber-500' : 'bg-emerald-500 border-emerald-500')
+                       : 'border-zinc-600'">
                   <svg x-show="set.done" class="w-3.5 h-3.5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
                   </svg>
                 </div>
-                <!-- Set # -->
-                <span class="text-[10px] uppercase tracking-wider w-10" :class="set.done ? 'text-emerald-600' : 'text-zinc-600'" x-text="'S' + (si + 1)"></span>
+                <!-- Warmup toggle / Set # -->
+                <button @click.stop="if(!set.done) set.isWarmup = !set.isWarmup"
+                        class="text-[10px] uppercase tracking-wider w-10 text-left"
+                        :class="set.isWarmup ? 'text-amber-400 font-bold' : (set.done ? 'text-emerald-600' : 'text-zinc-600')"
+                        x-text="set.isWarmup ? 'W' : 'S' + (si + 1)"></button>
                 <!-- Weight -->
                 <input type="number" x-model.number="set.weight" step="0.5"
                        @click.stop
@@ -235,6 +259,10 @@
                        class="w-20 bg-zinc-800 border border-zinc-700 rounded px-3 py-2.5 text-center text-base font-medium focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
                        :class="set.done && 'bg-emerald-900/20 border-transparent'">
                 <span class="text-[10px] text-zinc-600">x</span>
+                <!-- 1RM -->
+                <span x-show="!set.isWarmup && set.weight > 0 && set.reps > 0 && set.reps < 37"
+                      class="text-[10px] text-zinc-600 tabular-nums hidden sm:inline"
+                      x-text="'~' + Math.round(set.weight * 36 / (37 - set.reps)) + ' 1RM'"></span>
                 <!-- PR -->
                 <span x-show="set.isPr" class="text-[10px] uppercase tracking-wider text-amber-400 font-medium">PR</span>
                 <!-- Delete -->
@@ -300,6 +328,7 @@
         allExerciseImages: {},
         autoAdvanceSeconds: 0, autoAdvanceInterval: null,
         exerciseTimes: {}, exerciseStartedAt: null, exerciseElapsed: 0, exerciseTimerInterval: null,
+        exerciseHistory: {}, historyVisible: false, historyChart: null,
 
         get currentExercise() { return this.workout?.exercises?.[this.currentExerciseIndex]; },
         get exerciseSets() {
@@ -308,7 +337,7 @@
           return this.allSets[ex.name] || [];
         },
         get allCurrentSetsDone() {
-          const sets = this.exerciseSets;
+          const sets = this.exerciseSets.filter(s => !s.isWarmup);
           return sets.length > 0 && sets.every(s => s.done);
         },
         get exerciseProgress() {
@@ -319,7 +348,7 @@
         get allExercisesDone() {
           if (!this.workout) return false;
           return this.workout.exercises.every(ex => {
-            const sets = this.allSets[ex.name] || [];
+            const sets = (this.allSets[ex.name] || []).filter(s => !s.isWarmup);
             return sets.length > 0 && sets.every(s => s.done);
           });
         },
@@ -345,17 +374,17 @@
             if (existing.length > 0) {
               this.allSets[ex.name] = existing.map(s => ({
                 id: s.id, weight: Number(s.weight), reps: s.reps,
-                done: true, saved: true, isPr: false, saving: false
+                done: true, saved: true, isPr: false, saving: false, isWarmup: s.is_warmup || false
               }));
               const lw = Number(existing[existing.length - 1].weight);
               const lr = existing[existing.length - 1].reps;
-              this.allSets[ex.name].push({ weight: lw, reps: lr, done: false, saved: false, isPr: false, saving: false });
+              this.allSets[ex.name].push({ weight: lw, reps: lr, done: false, saved: false, isPr: false, saving: false, isWarmup: false });
             } else if (lastSets.length > 0) {
               this.allSets[ex.name] = lastSets.map(s => ({
-                weight: Number(s.weight), reps: s.reps, done: false, saved: false, isPr: false, saving: false
+                weight: Number(s.weight), reps: s.reps, done: false, saved: false, isPr: false, saving: false, isWarmup: false
               }));
             } else {
-              this.allSets[ex.name] = [{ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false }];
+              this.allSets[ex.name] = [{ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false, isWarmup: false }];
             }
           }
 
@@ -370,6 +399,7 @@
           clearInterval(this.elapsedInterval);
           this.elapsedInterval = setInterval(() => this.elapsedSeconds++, 1000);
           this.loadExerciseImages();
+          this.loadExerciseHistory();
 
           // Load saved exercise times and start tracking
           for (const et of (sessionRes.exercise_times || [])) {
@@ -382,8 +412,10 @@
           this.clearAutoAdvance();
           this.stopExerciseTimer();
           this.currentExerciseIndex = i;
+          this.historyVisible = false;
           this.startExerciseTimer();
           this.loadExerciseImages();
+          this.loadExerciseHistory();
         },
 
         async loadExerciseImages() {
@@ -415,6 +447,59 @@
           clearInterval(this.carouselInterval);
           this.carouselIndex = (this.carouselIndex + 1) % this.exerciseImages.length;
           if (this.exerciseImages.length > 1) this.startCarousel();
+        },
+
+        async loadExerciseHistory() {
+          const ex = this.currentExercise;
+          if (!ex) return;
+          if (this.exerciseHistory[ex.name]) { this.$nextTick(() => this.renderHistoryChart()); return; }
+          const res = await fetch(`/api/exercises/${encodeURIComponent(ex.name)}/history?limit=10`).then(r => r.json());
+          this.exerciseHistory[ex.name] = res.history || [];
+          this.$nextTick(() => this.renderHistoryChart());
+        },
+
+        renderHistoryChart() {
+          const ex = this.currentExercise;
+          if (!ex) return;
+          if (this.historyChart) { this.historyChart.destroy(); this.historyChart = null; }
+          const data = this.exerciseHistory[ex.name];
+          if (!data || data.length === 0) return;
+          const canvas = document.getElementById('hist-' + ex.name.replace(/\s/g, '-'));
+          if (!canvas) return;
+          this.historyChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels: data.map(d => d.date),
+              datasets: [{
+                data: data.map(d => d.max_weight),
+                borderColor: this.workout?.color || '#ef4444',
+                backgroundColor: (this.workout?.color || '#ef4444') + '20',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: this.workout?.color || '#ef4444',
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => {
+                      const d = data[ctx.dataIndex];
+                      return `${d.max_weight}kg | 1RM: ${d.one_rm}kg`;
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: { ticks: { color: '#52525b', font: { size: 10 } }, grid: { color: '#27272a' } },
+                y: { ticks: { color: '#52525b', font: { size: 10 } }, grid: { color: '#27272a' }, beginAtZero: false }
+              }
+            }
+          });
         },
 
         async uploadImage(event) {
@@ -486,7 +571,7 @@
         addSet() {
           const ex = this.currentExercise; if (!ex) return;
           const sets = this.allSets[ex.name]; const last = sets[sets.length - 1];
-          sets.push({ weight: last ? last.weight : (ex.defaultWeight || 0), reps: last ? last.reps : (ex.defaultReps || 0), done: false, saved: false, isPr: false, saving: false });
+          sets.push({ weight: last ? last.weight : (ex.defaultWeight || 0), reps: last ? last.reps : (ex.defaultReps || 0), done: false, saved: false, isPr: false, saving: false, isWarmup: false });
         },
 
         goNextExercise() {
@@ -534,7 +619,7 @@
 
           const res = await fetch(`/api/sessions/${this.sessionId}/sets`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ exercise_name: ex.name, exercise_order: ex.order, equipment: ex.equipment, weight: set.weight, reps: set.reps, set_number: si + 1 })
+            body: JSON.stringify({ exercise_name: ex.name, exercise_order: ex.order, equipment: ex.equipment, weight: set.weight, reps: set.reps, set_number: si + 1, is_warmup: set.isWarmup })
           }).then(r => r.json());
 
           set.done = true; set.saved = true; set.saving = false; set.isPr = res.isNewPr; set.id = res.set.id;
@@ -556,7 +641,7 @@
         },
         isExerciseDone(i) {
           const ex = this.workout?.exercises?.[i];
-          const sets = this.allSets[ex?.name] || [];
+          const sets = (this.allSets[ex?.name] || []).filter(s => !s.isWarmup);
           return sets.length > 0 && sets.every(s => s.done);
         },
 
@@ -564,7 +649,7 @@
           const ex = this.currentExercise; const sets = this.allSets[ex.name]; const set = sets[si];
           if (set.saved && set.id) await fetch(`/api/sessions/${this.sessionId}/sets/${set.id}`, { method: 'DELETE' });
           sets.splice(si, 1);
-          if (sets.length === 0) sets.push({ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false });
+          if (sets.length === 0) sets.push({ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false, isWarmup: false });
         },
 
         startExerciseTimer() {

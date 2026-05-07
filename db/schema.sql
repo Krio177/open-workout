@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS exercise_sets (
     weight          NUMERIC(7,2) NOT NULL,
     reps            INTEGER NOT NULL,
     set_number      INTEGER NOT NULL DEFAULT 1,
-    completed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    completed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_warmup       BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS personal_records (
@@ -37,6 +38,9 @@ CREATE TABLE IF NOT EXISTS exercise_times (
     duration_seconds  INTEGER NOT NULL DEFAULT 0,
     UNIQUE(session_id, exercise_name)
 );
+
+-- Migrations
+ALTER TABLE exercise_sets ADD COLUMN IF NOT EXISTS is_warmup BOOLEAN NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON workout_sessions(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sets_session ON exercise_sets(session_id);

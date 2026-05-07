@@ -192,7 +192,7 @@ app.put('/api/sessions/:id/finish', async (c) => {
   const id = c.req.param('id');
 
   const totalRes = await pool.query(
-    'SELECT COALESCE(SUM(weight * reps), 0) as total FROM exercise_sets WHERE session_id = $1',
+    'SELECT COALESCE(SUM(weight * reps), 0) as total FROM exercise_sets WHERE session_id = $1 AND is_warmup = false',
     [id]
   );
   const totalWeight = totalRes.rows[0].total;
@@ -235,13 +235,18 @@ app.put('/api/sessions/:id/exercise-time', async (c) => {
 // --- Set logging with PR detection ---
 app.post('/api/sessions/:id/sets', async (c) => {
   const sessionId = c.req.param('id');
-  const { exercise_name, exercise_order, equipment, weight, reps, set_number } = await c.req.json();
+  const { exercise_name, exercise_order, equipment, weight, reps, set_number, is_warmup } = await c.req.json();
 
   const setRes = await pool.query(
-    `INSERT INTO exercise_sets (session_id, exercise_name, exercise_order, equipment, weight, reps, set_number)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [sessionId, exercise_name, exercise_order, equipment, weight, reps, set_number || 1]
+    `INSERT INTO exercise_sets (session_id, exercise_name, exercise_order, equipment, weight, reps, set_number, is_warmup)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [sessionId, exercise_name, exercise_order, equipment, weight, reps, set_number || 1, is_warmup || false]
   );
+
+  // Skip PR detection for warmup sets
+  if (is_warmup) {
+    return c.json({ set: setRes.rows[0], isNewPr: false, previousPr: null }, 201);
+  }
 
   const oneRM = brzycki1RM(weight, reps);
   let isNewPr = false;
@@ -353,6 +358,60 @@ app.get('/api/stats', async (c) => {
 app.get('/api/prs', async (c) => {
   const res = await pool.query('SELECT * FROM personal_records ORDER BY exercise_name');
   return c.json(res.rows);
+});
+
+// --- JSON export ---
+app.get('/api/export', async (c) => {
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+  let query = `SELECT s.*, json_agg(
+      json_build_object(
+        'exercise_name', es.exercise_name, 'equipment', es.equipment,
+        'set_number', es.set_number, 'weight', es.weight, 'reps', es.reps,
+        'is_warmup', es.is_warmup, 'completed_at', es.completed_at
+      ) ORDER BY es.exercise_order, es.set_number
+    ) as sets
+    FROM workout_sessions s
+    JOIN exercise_sets es ON es.session_id = s.id
+    WHERE s.finished_at IS NOT NULL`;
+  const params = [];
+  if (from) { params.push(from); query += ` AND s.started_at >= $${params.length}`; }
+  if (to) { params.push(to + 'T23:59:59'); query += ` AND s.started_at <= $${params.length}`; }
+  query += ' GROUP BY s.id ORDER BY s.started_at DESC';
+
+  const res = await pool.query(query, params);
+  const sessions = res.rows.map(r => ({
+    ...r,
+    workout_name: workouts.get(r.workout_id)?.name || r.workout_id
+  }));
+  return c.json({
+    exported_at: new Date().toISOString(),
+    filter: { from: from || null, to: to || null },
+    sessions
+  });
+});
+
+// --- Exercise history ---
+app.get('/api/exercises/:name/history', async (c) => {
+  const name = decodeURIComponent(c.req.param('name'));
+  const limit = parseInt(c.req.query('limit')) || 10;
+  const res = await pool.query(
+    `SELECT s.started_at::date as date, MAX(es.weight) as max_weight,
+            (array_agg(es.reps ORDER BY es.weight DESC))[1] as max_reps
+     FROM exercise_sets es
+     JOIN workout_sessions s ON s.id = es.session_id
+     WHERE es.exercise_name = $1 AND s.finished_at IS NOT NULL AND es.is_warmup = false
+     GROUP BY s.id, s.started_at
+     ORDER BY s.started_at DESC LIMIT $2`,
+    [name, limit]
+  );
+  const history = res.rows.reverse().map(r => ({
+    date: r.date,
+    max_weight: Number(r.max_weight),
+    max_reps: r.max_reps,
+    one_rm: Math.round(brzycki1RM(Number(r.max_weight), r.max_reps) * 10) / 10
+  }));
+  return c.json({ exercise_name: name, history });
 });
 
 // --- Start ---
