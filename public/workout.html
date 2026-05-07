@@ -50,6 +50,11 @@
         </button>
       </div>
     </div>
+    <!-- Progress bar -->
+    <div class="h-1 bg-zinc-800">
+      <div class="h-full transition-all duration-500 ease-out"
+           :style="`width: ${exerciseProgress}%; background: ${workout?.color || '#ef4444'}`"></div>
+    </div>
   </header>
 
   <div class="max-w-5xl mx-auto p-4 flex flex-row gap-4">
@@ -196,9 +201,17 @@
 
             <template x-for="(set, si) in exerciseSets" :key="si">
               <div @click="toggleSet(si)"
-                   class="animate-slide-in flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-200 cursor-pointer"
+                   @mousedown.prevent="startDrag($event, si)" @touchstart="startDrag($event, si)"
+                   class="animate-slide-in flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-200 cursor-pointer select-none relative overflow-hidden"
                    :class="set.done ? 'bg-emerald-950/30 border-emerald-800/50' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'"
-                   :style="`animation-delay: ${si * 50}ms`">
+                   :style="`animation-delay: ${si * 50}ms; transform: translateX(${set._dragX || 0}px)`">
+                <!-- Drag weight indicator -->
+                <div x-show="set._dragDelta" class="absolute inset-0 flex items-center pointer-events-none z-10"
+                     :class="set._dragDelta > 0 ? 'justify-end pr-6' : 'justify-start pl-6'">
+                  <span class="text-lg font-display font-700"
+                        :class="set._dragDelta > 0 ? 'text-emerald-400' : 'text-red-400'"
+                        x-text="(set._dragDelta > 0 ? '+' : '') + (set._dragDelta * 2.5) + ' kg'"></span>
+                </div>
                 <!-- Check -->
                 <div class="flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200 pointer-events-none"
                      :class="set.done ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'">
@@ -212,14 +225,14 @@
                 <input type="number" x-model.number="set.weight" step="0.5"
                        @click.stop
                        :disabled="set.done"
-                       class="w-20 bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-center text-sm focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
+                       class="w-24 bg-zinc-800 border border-zinc-700 rounded px-3 py-2.5 text-center text-base font-medium focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
                        :class="set.done && 'bg-emerald-900/20 border-transparent'">
                 <span class="text-[10px] text-zinc-600">kg</span>
                 <!-- Reps -->
                 <input type="number" x-model.number="set.reps"
                        @click.stop
                        :disabled="set.done"
-                       class="w-16 bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-center text-sm focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
+                       class="w-20 bg-zinc-800 border border-zinc-700 rounded px-3 py-2.5 text-center text-base font-medium focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
                        :class="set.done && 'bg-emerald-900/20 border-transparent'">
                 <span class="text-[10px] text-zinc-600">x</span>
                 <!-- PR -->
@@ -298,6 +311,11 @@
           const sets = this.exerciseSets;
           return sets.length > 0 && sets.every(s => s.done);
         },
+        get exerciseProgress() {
+          if (!this.workout) return 0;
+          const done = this.workout.exercises.filter((ex, i) => this.isExerciseDone(i)).length;
+          return (done / this.workout.exercises.length) * 100;
+        },
         get allExercisesDone() {
           if (!this.workout) return false;
           return this.workout.exercises.every(ex => {
@@ -349,6 +367,7 @@
           this.ready = true;
           const start = new Date(this.session.started_at);
           this.elapsedSeconds = Math.floor((Date.now() - start.getTime()) / 1000);
+          clearInterval(this.elapsedInterval);
           this.elapsedInterval = setInterval(() => this.elapsedSeconds++, 1000);
           this.loadExerciseImages();
 
@@ -412,6 +431,53 @@
           this.uploading = false;
         },
 
+        // Swipe-to-adjust weight
+        _dragState: null,
+        startDrag(e, si) {
+          const set = this.exerciseSets[si];
+          if (set.done) return;
+          // Don't drag from inputs
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          this._dragState = { si, startX: clientX, startWeight: set.weight, moved: false };
+          set._dragX = 0; set._dragDelta = 0;
+
+          const onMove = (ev) => {
+            if (!this._dragState) return;
+            const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+            const dx = cx - this._dragState.startX;
+            if (Math.abs(dx) > 10) this._dragState.moved = true;
+            if (!this._dragState.moved) return;
+            const steps = Math.round(dx / 40);
+            const s = this.exerciseSets[this._dragState.si];
+            s._dragX = Math.max(-80, Math.min(80, dx * 0.3));
+            s._dragDelta = steps;
+          };
+          const onEnd = () => {
+            if (this._dragState) {
+              const s = this.exerciseSets[this._dragState.si];
+              if (this._dragState.moved && s._dragDelta) {
+                s.weight = Math.max(0, this._dragState.startWeight + s._dragDelta * 2.5);
+              }
+              s._dragX = 0; s._dragDelta = 0;
+              // Block click if we dragged
+              if (this._dragState.moved) {
+                this._blockClick = true;
+                setTimeout(() => this._blockClick = false, 50);
+              }
+              this._dragState = null;
+            }
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onEnd);
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onEnd);
+          document.addEventListener('touchmove', onMove, { passive: true });
+          document.addEventListener('touchend', onEnd);
+        },
+
         slugify(name) {
           return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         },
@@ -448,7 +514,9 @@
           this.autoAdvanceSeconds = 0;
         },
 
+        _blockClick: false,
         async toggleSet(si) {
+          if (this._blockClick) return;
           const ex = this.currentExercise; const set = this.allSets[ex.name][si];
           if (set.saving) return;
 
@@ -471,15 +539,13 @@
           set.done = true; set.saved = true; set.saving = false; set.isPr = res.isNewPr; set.id = res.set.id;
           if (res.isNewPr) { this.showPrToast = true; setTimeout(() => this.showPrToast = false, 3000); }
 
-          // If all sets for this exercise are done, auto-advance with delay
-          if (this.allCurrentSetsDone) {
-            if (this.allExercisesDone) {
-              this.finishWorkout(false);
-            } else {
-              setTimeout(() => this.goNextExercise(), 2000);
-            }
+          // Start rest timer after each completed set
+          if (this.allCurrentSetsDone && this.allExercisesDone) {
+            this.finishWorkout(false);
           } else {
             this.startRest(ex.restSeconds || this.workout.defaultRestSeconds || 90);
+            // All sets done for this exercise — switch to next, rest timer keeps running
+            if (this.allCurrentSetsDone) this.goNextExercise();
           }
         },
 
@@ -580,7 +646,13 @@
           clearInterval(this.elapsedInterval);
           window.location.href = '/';
         },
-        formatDuration(s) { return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`; }
+        formatDuration(s) {
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          const sec = s % 60;
+          if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+          return `${m}:${sec.toString().padStart(2, '0')}`;
+        }
       };
     }
   </script>
