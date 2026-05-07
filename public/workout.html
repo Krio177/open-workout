@@ -201,7 +201,7 @@
 
             <template x-for="(set, si) in exerciseSets" :key="si">
               <div @click="toggleSet(si)"
-                   @mousedown.prevent="startDrag($event, si)" @touchstart="startDrag($event, si)"
+                   @mousedown="startDrag($event, si)" @touchstart="startDrag($event, si)"
                    class="animate-slide-in flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-200 cursor-pointer select-none relative overflow-hidden"
                    :class="set.done ? 'bg-emerald-950/30 border-emerald-800/50' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'"
                    :style="`animation-delay: ${si * 50}ms; transform: translateX(${set._dragX || 0}px)`">
@@ -438,6 +438,7 @@
           if (set.done) return;
           // Don't drag from inputs
           if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+          e.preventDefault();
           const clientX = e.touches ? e.touches[0].clientX : e.clientX;
           this._dragState = { si, startX: clientX, startWeight: set.weight, moved: false };
           set._dragX = 0; set._dragDelta = 0;
