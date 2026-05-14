@@ -631,7 +631,7 @@
           } else {
             this.startRest(ex.restSeconds || this.workout.defaultRestSeconds || 90);
             // All sets done for this exercise — switch to next, rest timer keeps running
-            if (this.allCurrentSetsDone) this.goNextExercise();
+            if (this.allCurrentSetsDone) setTimeout(() => this.goNextExercise(), 2000);
           }
         },
 
