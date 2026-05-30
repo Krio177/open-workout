@@ -679,24 +679,24 @@
           });
         },
 
-        beep(count = 1) {
+        beep(count = 1, dur = 150, lastDur = null) {
           try {
             const ctx = new AudioContext();
             const o = ctx.createOscillator(); const g = ctx.createGain();
             o.connect(g); g.connect(ctx.destination);
             o.frequency.value = 880; g.gain.value = 0.3;
             o.start();
-            const dur = 150;
-            setTimeout(() => { o.stop(); ctx.close(); }, dur);
+            setTimeout(() => { o.stop(); ctx.close(); }, count === 1 && lastDur ? lastDur : dur);
             for (let i = 1; i < count; i++) {
               setTimeout(() => {
+                const isLast = i === count - 1;
                 const c2 = new AudioContext();
                 const o2 = c2.createOscillator(); const g2 = c2.createGain();
                 o2.connect(g2); g2.connect(c2.destination);
                 o2.frequency.value = 880; g2.gain.value = 0.3;
                 o2.start();
-                setTimeout(() => { o2.stop(); c2.close(); }, dur);
-              }, i * 300);
+                setTimeout(() => { o2.stop(); c2.close(); }, isLast && lastDur ? lastDur : dur);
+              }, i * (dur + 150));
             }
           } catch (e) {}
         },
@@ -712,7 +712,7 @@
         skipRest() { clearInterval(this.timerInterval); this.endRest(); },
         endRest() {
           clearInterval(this.timerInterval); this.timerRunning = false;
-          this.beep(3);
+          this.beep(3, 150, 500);
           if (this.allCurrentSetsDone) this.startAutoAdvance();
         },
 
