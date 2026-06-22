@@ -9,6 +9,7 @@ COPY server.js .
 COPY db/ ./db/
 COPY workouts/ ./workouts/
 COPY public/ ./public/
+COPY integrations/ ./integrations/
 
 EXPOSE 3000
 
