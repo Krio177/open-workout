@@ -1,31 +1,143 @@
 /**
  * SparkyFitness integration — posts finished workout as a single exercise entry.
  *
- * Required env vars (all three must be set, else this is a no-op):
+ * Required env vars:
  *   SPARKY_FITNESS_URL          — base URL, e.g. http://localhost:3004
  *   SPARKY_FITNESS_API_KEY      — Bearer token with health_data_write permission
  *   SPARKY_FITNESS_EXERCISE_ID  — UUID of the exercise to log under (e.g. "Strength Training")
+ *
+ * Optional:
+ *   SPARKY_FITNESS_BODY_MASS_KG — body mass in kg for calorie calculation (default: 70)
  */
 
-const CALORIES_PER_MINUTE = 5; // ~3 MET × 70 kg average, rough weight-training approximation
+// Physics constants
+const G = 9.81;          // m/s²
+const J_TO_KCAL = 4184;  // joules per kcal
+const EFFICIENCY = 0.22; // human muscle mechanical efficiency (concentric)
+const ECCENTRIC = 1.2;   // multiplier to account for eccentric (lowering) phase energy cost
+
+/**
+ * Exercise parameters: [ROM in metres, fraction of body mass that moves with the bar]
+ *
+ * ROM: average range of motion for the concentric phase
+ * bodyFraction: fraction of lifter's body mass that travels the same ROM as the bar
+ *   (e.g. squat moves ~65% of body mass up/down with the bar)
+ *
+ * Unknown exercises fall back to DEFAULT.
+ */
+const EXERCISE_PARAMS = {
+  // Lower body compound
+  squat:                [0.50, 0.65],
+  'front squat':        [0.50, 0.65],
+  guggolás:             [0.50, 0.65],
+  lunge:                [0.45, 0.65],
+  kitörés:              [0.45, 0.65],
+  'leg press':          [0.40, 0.00],
+  'romanian deadlift':  [0.55, 0.10],
+  'rdl':                [0.55, 0.10],
+  deadlift:             [0.60, 0.10],
+  felhúzás:             [0.60, 0.10],
+  'sumo deadlift':      [0.55, 0.10],
+  'hip thrust':         [0.25, 0.55],
+  'glute bridge':       [0.20, 0.55],
+  'leg curl':           [0.40, 0.00],
+  'leg extension':      [0.40, 0.00],
+  'calf raise':         [0.10, 0.00],
+
+  // Upper body push
+  'bench press':        [0.40, 0.05],
+  fekvenyomás:          [0.40, 0.05],
+  'incline bench':      [0.40, 0.05],
+  'decline bench':      [0.35, 0.05],
+  'overhead press':     [0.50, 0.05],
+  'shoulder press':     [0.50, 0.05],
+  'vállból nyomás':     [0.50, 0.05],
+  'military press':     [0.50, 0.05],
+  'push press':         [0.55, 0.05],
+  dip:                  [0.45, 0.40],
+  'chest fly':          [0.50, 0.02],
+  'cable fly':          [0.50, 0.02],
+  'tricep pushdown':    [0.35, 0.00],
+  'triceps pushdown':   [0.35, 0.00],
+  'skull crusher':      [0.35, 0.02],
+
+  // Upper body pull
+  'pull up':            [0.55, 0.65],
+  'pullup':             [0.55, 0.65],
+  'chin up':            [0.55, 0.65],
+  'chinup':             [0.55, 0.65],
+  'lat pulldown':       [0.55, 0.00],
+  'seated row':         [0.45, 0.00],
+  'cable row':          [0.45, 0.00],
+  'bent over row':      [0.40, 0.10],
+  'barbell row':        [0.40, 0.10],
+  't-bar row':          [0.40, 0.10],
+  'face pull':          [0.35, 0.00],
+  shrug:                [0.10, 0.00],
+  'bicep curl':         [0.35, 0.02],
+  'biceps curl':        [0.35, 0.02],
+  bicepsz:              [0.35, 0.02],
+  'hammer curl':        [0.35, 0.02],
+  'preacher curl':      [0.30, 0.00],
+
+  // Default fallback for unrecognised exercises
+  DEFAULT:              [0.45, 0.05],
+};
+
+/**
+ * Look up exercise parameters by name.
+ * Tries exact match (case-insensitive), then substring match.
+ */
+function getExerciseParams(name) {
+  const key = name.toLowerCase().trim();
+  if (EXERCISE_PARAMS[key]) return EXERCISE_PARAMS[key];
+  // Substring match — pick the first key that appears in the exercise name
+  for (const [k, v] of Object.entries(EXERCISE_PARAMS)) {
+    if (k !== 'DEFAULT' && key.includes(k)) return v;
+  }
+  return EXERCISE_PARAMS.DEFAULT;
+}
+
+/**
+ * Calculate kcal burned for a single set using the mechanical work formula.
+ *
+ *   W (J) = reps × (externalWeight + bodyMass × bodyFraction) × g × ROM
+ *   kcal  = W / J_TO_KCAL × ECCENTRIC / EFFICIENCY
+ */
+function kcalForSet(exerciseName, weightKg, reps, bodyMassKg) {
+  const [rom, bodyFraction] = getExerciseParams(exerciseName);
+  const totalMass = weightKg + bodyMassKg * bodyFraction;
+  const joules = reps * totalMass * G * rom;
+  return (joules / J_TO_KCAL) * ECCENTRIC / EFFICIENCY;
+}
 
 /**
  * Pushes a finished workout session to SparkyFitness.
  *
- * @param {{ session: object, exercise_times: Array<{duration_seconds: number}> }} finishResult
+ * @param {{ session: object, sets: Array, exercise_times: Array }} finishResult
  *   The object returned by PUT /api/sessions/:id/finish
  */
-export async function pushToSparkyFitness({ session, exercise_times }) {
+export async function pushToSparkyFitness({ session, sets, exercise_times }) {
   const url = process.env.SPARKY_FITNESS_URL;
   const apiKey = process.env.SPARKY_FITNESS_API_KEY;
   const exerciseId = process.env.SPARKY_FITNESS_EXERCISE_ID;
 
   if (!url || !apiKey || !exerciseId) return; // not configured
 
+  const bodyMassKg = parseFloat(process.env.SPARKY_FITNESS_BODY_MASS_KG) || 70;
+
+  // Sum calories from all non-warmup sets using mechanical work formula
+  const workSets = sets.filter(s => !s.is_warmup);
+  const caloriesBurned = workSets.length > 0
+    ? Math.round(workSets.reduce((sum, s) =>
+        sum + kcalForSet(s.exercise_name, Number(s.weight), s.reps, bodyMassKg), 0))
+    : 0;
+
+  // Duration from exercise_times (for informational logging in SparkyFitness)
   const totalSeconds = exercise_times.reduce((sum, t) => sum + t.duration_seconds, 0);
   const durationMinutes = Math.max(1, Math.round(totalSeconds / 60));
-  const caloriesBurned = Math.round(durationMinutes * CALORIES_PER_MINUTE);
-  const entryDate = new Date(session.started_at).toISOString().slice(0, 10); // YYYY-MM-DD
+
+  const entryDate = new Date(session.started_at).toISOString().slice(0, 10);
 
   const res = await fetch(`${url}/api/exercise-entries`, {
     method: 'POST',
