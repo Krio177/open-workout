@@ -6,6 +6,7 @@ import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool, { connect } from './db/client.js';
+import { pushToSparkyFitness } from './integrations/sparky.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -209,7 +210,14 @@ app.put('/api/sessions/:id/finish', async (c) => {
     pool.query('SELECT * FROM exercise_times WHERE session_id = $1', [id])
   ]);
 
-  return c.json({ session: res.rows[0], sets: setsRes.rows, newPrs: prRes.rows, exercise_times: timesRes.rows });
+  const finishResult = { session: res.rows[0], sets: setsRes.rows, newPrs: prRes.rows, exercise_times: timesRes.rows };
+
+  // Fire-and-forget: push to SparkyFitness without blocking the response
+  pushToSparkyFitness(finishResult).catch(err =>
+    console.error('[SparkyFitness] push failed:', err.message)
+  );
+
+  return c.json(finishResult);
 });
 
 app.delete('/api/sessions/:id', async (c) => {
