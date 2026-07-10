@@ -46,3 +46,9 @@ CREATE INDEX IF NOT EXISTS idx_sessions_started ON workout_sessions(started_at D
 CREATE INDEX IF NOT EXISTS idx_sets_session ON exercise_sets(session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_workout ON workout_sessions(workout_id);
 CREATE INDEX IF NOT EXISTS idx_exercise_times_session ON exercise_times(session_id);
+
+CREATE TABLE IF NOT EXISTS exercise_notes (
+    exercise_name TEXT PRIMARY KEY,
+    note          TEXT NOT NULL,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
