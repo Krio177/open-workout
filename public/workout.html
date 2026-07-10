@@ -396,7 +396,11 @@
                 weight: Number(s.weight), reps: s.reps, done: false, saved: false, isPr: false, saving: false, isWarmup: false
               }));
             } else {
-              this.allSets[ex.name] = [{ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false, isWarmup: false }];
+              const count = ex.defaultSets || 3;
+              this.allSets[ex.name] = Array.from({ length: count }, () => ({
+                weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0,
+                done: false, saved: false, isPr: false, saving: false, isWarmup: false
+              }));
             }
           }
 

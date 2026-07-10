@@ -12,6 +12,7 @@
       "equipment": "barbell",
       "defaultWeight": 80,
       "defaultReps": 6,
+      "defaultSets": 4,
       "restSeconds": 150,
       "notes": "Teljes tartomany",
       "image": "/images/squat.svg"
@@ -22,6 +23,7 @@
       "equipment": "dumbbell",
       "defaultWeight": 20,
       "defaultReps": 10,
+      "defaultSets": 3,
       "restSeconds": 90,
       "image": "/images/lunge.svg"
     },
@@ -31,6 +33,7 @@
       "equipment": "barbell",
       "defaultWeight": 60,
       "defaultReps": 8,
+      "defaultSets": 3,
       "restSeconds": 90,
       "image": "/images/rdl.svg"
     },
@@ -40,6 +43,7 @@
       "equipment": "machine",
       "defaultWeight": 60,
       "defaultReps": 12,
+      "defaultSets": 3,
       "restSeconds": 60,
       "image": "/images/calf-raise.svg"
     }

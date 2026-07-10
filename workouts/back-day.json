@@ -12,6 +12,7 @@
       "equipment": "barbell",
       "defaultWeight": 70,
       "defaultReps": 6,
+      "defaultSets": 4,
       "restSeconds": 150,
       "image": "/images/deadlift.svg"
     },
@@ -21,6 +22,7 @@
       "equipment": "barbell",
       "defaultWeight": 50,
       "defaultReps": 8,
+      "defaultSets": 3,
       "restSeconds": 90,
       "image": "/images/barbell-row.svg"
     },
@@ -30,6 +32,7 @@
       "equipment": "cable",
       "defaultWeight": 40,
       "defaultReps": 10,
+      "defaultSets": 3,
       "restSeconds": 75,
       "image": "/images/lat-pulldown.svg"
     },
@@ -39,6 +42,7 @@
       "equipment": "cable",
       "defaultWeight": 20,
       "defaultReps": 12,
+      "defaultSets": 3,
       "restSeconds": 60,
       "image": "/images/face-pull.svg"
     }

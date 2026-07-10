@@ -12,6 +12,7 @@
       "equipment": "barbell",
       "defaultWeight": 60,
       "defaultReps": 8,
+      "defaultSets": 3,
       "restSeconds": 120,
       "notes": "Lassan engedd le",
       "image": "/images/bench-press.svg"
@@ -22,6 +23,7 @@
       "equipment": "dumbbell",
       "defaultWeight": 14,
       "defaultReps": 10,
+      "defaultSets": 3,
       "restSeconds": 90,
       "image": "/images/dumbbell-fly.svg"
     },
@@ -31,6 +33,7 @@
       "equipment": "cable",
       "defaultWeight": 15,
       "defaultReps": 12,
+      "defaultSets": 3,
       "restSeconds": 60,
       "image": "/images/cable-crossover.svg"
     }
