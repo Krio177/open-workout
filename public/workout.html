@@ -170,6 +170,17 @@
               <template x-if="currentExercise.notes">
                 <p class="text-sm text-zinc-400 mt-2 leading-relaxed" x-text="currentExercise.notes"></p>
               </template>
+              <!-- User note -->
+              <div class="mt-3">
+                <textarea
+                  x-model="exerciseNote"
+                  @blur="saveExerciseNote()"
+                  placeholder="Megjegyzés..."
+                  rows="2"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-500 transition"
+                ></textarea>
+                <span x-show="noteSaving" class="text-[10px] text-zinc-600 mt-1 block">Mentés...</span>
+              </div>
             </div>
           </div>
 
@@ -329,6 +340,7 @@
         autoAdvanceSeconds: 0, autoAdvanceInterval: null,
         exerciseTimes: {}, exerciseStartedAt: null, exerciseElapsed: 0, exerciseTimerInterval: null,
         exerciseHistory: {}, historyVisible: false, historyChart: null,
+        exerciseNote: '', noteSaving: false,
 
         get currentExercise() { return this.workout?.exercises?.[this.currentExerciseIndex]; },
         get exerciseSets() {
@@ -400,6 +412,7 @@
           this.elapsedInterval = setInterval(() => this.elapsedSeconds++, 1000);
           this.loadExerciseImages();
           this.loadExerciseHistory();
+          if (this.currentExercise) await this.loadExerciseNote(this.currentExercise.name);
 
           // Load saved exercise times and start tracking
           for (const et of (sessionRes.exercise_times || [])) {
@@ -408,7 +421,7 @@
           this.startExerciseTimer();
         },
 
-        switchExercise(i) {
+        async switchExercise(i) {
           this.clearAutoAdvance();
           this.stopExerciseTimer();
           this.currentExerciseIndex = i;
@@ -416,6 +429,24 @@
           this.startExerciseTimer();
           this.loadExerciseImages();
           this.loadExerciseHistory();
+          await this.loadExerciseNote(this.workout.exercises[i].name);
+        },
+
+        async loadExerciseNote(name) {
+          const res = await fetch(`/api/exercises/${encodeURIComponent(name)}/note`);
+          const data = await res.json();
+          this.exerciseNote = data.note || '';
+        },
+
+        async saveExerciseNote() {
+          if (!this.currentExercise) return;
+          this.noteSaving = true;
+          await fetch(`/api/exercises/${encodeURIComponent(this.currentExercise.name)}/note`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: this.exerciseNote }),
+          });
+          this.noteSaving = false;
         },
 
         async loadExerciseImages() {
