@@ -433,9 +433,14 @@
         },
 
         async loadExerciseNote(name) {
-          const res = await fetch(`/api/exercises/${encodeURIComponent(name)}/note`);
-          const data = await res.json();
-          this.exerciseNote = data.note || '';
+          try {
+            const res = await fetch(`/api/exercises/${encodeURIComponent(name)}/note`);
+            const data = await res.json();
+            this.exerciseNote = data.note || '';
+          } catch (e) {
+            console.error('[note] load failed:', e);
+            this.exerciseNote = '';
+          }
         },
 
         async saveExerciseNote(name) {
