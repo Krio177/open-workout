@@ -99,6 +99,33 @@ app.get('/api/exercises/:exerciseName/images', async (c) => {
   return c.json({ images });
 });
 
+app.get('/api/exercises/:name/note', async (c) => {
+  const name = decodeURIComponent(c.req.param('name'));
+  const res = await pool.query(
+    'SELECT note, updated_at FROM exercise_notes WHERE exercise_name = $1',
+    [name]
+  );
+  return c.json({ note: res.rows[0]?.note ?? null });
+});
+
+app.put('/api/exercises/:name/note', async (c) => {
+  const name = decodeURIComponent(c.req.param('name'));
+  const { note } = await c.req.json();
+  if (!note || !note.trim()) {
+    await pool.query('DELETE FROM exercise_notes WHERE exercise_name = $1', [name]);
+    return c.json({ note: null });
+  }
+  const res = await pool.query(
+    `INSERT INTO exercise_notes (exercise_name, note, updated_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (exercise_name)
+     DO UPDATE SET note = $2, updated_at = NOW()
+     RETURNING note, updated_at`,
+    [name, note.trim()]
+  );
+  return c.json(res.rows[0]);
+});
+
 // --- Workout definition endpoints ---
 app.get('/api/workouts', (c) => {
   return c.json([...workouts.values()]);
