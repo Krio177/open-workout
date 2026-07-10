@@ -1,0 +1,88 @@
+{
+  "id": "legs-core",
+  "name": "Legs + Core",
+  "defaultRestSeconds": 90,
+  "color": "#f59e0b",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Barbell Squat",
+      "equipment": "barbell",
+      "defaultWeight": 90,
+      "defaultReps": 8,
+      "restSeconds": 150,
+      "image": "/images/squat.svg",
+      "notes": "Tartsd a mellkasod fel, térd ne dőljön befelé, mélyen le a combig"
+    },
+    {
+      "order": 2,
+      "name": "Standing Calf Raise (Barbell)",
+      "equipment": "barbell",
+      "defaultWeight": 110,
+      "defaultReps": 12,
+      "restSeconds": 60,
+      "image": "/images/calf-raise.svg",
+      "notes": "Teljes mozgástartomány — lent teljesen nyújtsd meg, fent állj a lábujjhegyre"
+    },
+    {
+      "order": 3,
+      "name": "Romanian Deadlift (Barbell)",
+      "equipment": "barbell",
+      "defaultWeight": 120,
+      "defaultReps": 8,
+      "restSeconds": 90,
+      "image": "/images/rdl.svg",
+      "notes": "Hát egyenes, csípőből dőlj előre, érezd a combhajlítók nyúlását, rúd közel a lábhoz"
+    },
+    {
+      "order": 4,
+      "name": "Bulgarian Split Squat",
+      "equipment": "dumbbell",
+      "defaultWeight": 20,
+      "defaultReps": 8,
+      "restSeconds": 75,
+      "image": "/images/lunge.svg",
+      "notes": "Hátsó láb teteje a padon, első láb elég messze előre, törzs egyenes"
+    },
+    {
+      "order": 5,
+      "name": "Decline Sit Up",
+      "equipment": "barbell",
+      "defaultWeight": 30,
+      "defaultReps": 8,
+      "restSeconds": 60,
+      "image": "/images/squat.svg",
+      "notes": "Lassan engedd le, fent ne pihenj meg, súly a mellkason"
+    },
+    {
+      "order": 6,
+      "name": "Cable Kickback",
+      "equipment": "cable",
+      "defaultWeight": 20,
+      "defaultReps": 8,
+      "restSeconds": 60,
+      "image": "/images/calf-raise.svg",
+      "notes": "Csípőből nyújtsd a lábat hátra, törzs stabilan, ne lendíts"
+    },
+    {
+      "order": 7,
+      "name": "Cable Side Bend",
+      "equipment": "cable",
+      "defaultWeight": 20,
+      "defaultReps": 10,
+      "restSeconds": 60,
+      "image": "/images/rear-delt-fly.svg",
+      "notes": "Lassan, kontrolláltan le és fel, ne lendíts, szabad kéz a fejre"
+    },
+    {
+      "order": 8,
+      "name": "Hanging Leg Raise",
+      "equipment": "bodyweight",
+      "defaultWeight": 0,
+      "defaultReps": 8,
+      "restSeconds": 60,
+      "image": "/images/squat.svg",
+      "notes": "Lábak egyenesen vagy enyhén hajlítva, ne hintázz, kontrolláltan engedd le"
+    }
+  ]
+}

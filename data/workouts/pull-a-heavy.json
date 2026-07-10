@@ -1,0 +1,78 @@
+{
+  "id": "pull-a-heavy",
+  "name": "Pull A (Heavy)",
+  "defaultRestSeconds": 90,
+  "color": "#3b82f6",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Conventional Deadlift (Barbell)",
+      "equipment": "barbell",
+      "defaultWeight": 130,
+      "defaultReps": 4,
+      "restSeconds": 180,
+      "image": "/images/deadlift.svg",
+      "notes": "Lapocka hátra, rúd közel a lábhoz, csípőből toljad fel, hát végig egyenes"
+    },
+    {
+      "order": 2,
+      "name": "Pull Up",
+      "equipment": "bodyweight",
+      "defaultWeight": 0,
+      "defaultReps": 6,
+      "restSeconds": 120,
+      "image": "/images/lat-pulldown.svg",
+      "notes": "Teljes nyújtás lent, állig vagy fölé a rúd, váll lenyomva húzás közben"
+    },
+    {
+      "order": 3,
+      "name": "Neutral Grip Pull Up",
+      "equipment": "bodyweight",
+      "defaultWeight": 0,
+      "defaultReps": 6,
+      "restSeconds": 90,
+      "image": "/images/lat-pulldown.svg",
+      "notes": "Könyök a test mellé húzd, mellkast a rúdhoz, lapockák össze a tetőn"
+    },
+    {
+      "order": 4,
+      "name": "EZ-Bar Curl",
+      "equipment": "barbell",
+      "defaultWeight": 30,
+      "defaultReps": 8,
+      "restSeconds": 60,
+      "image": "/images/barbell-row.svg",
+      "notes": "Könyök fixált az oldaladon, ne lendíts, lassan engedd le"
+    },
+    {
+      "order": 5,
+      "name": "Seated Cable Row",
+      "equipment": "cable",
+      "defaultWeight": 70,
+      "defaultReps": 8,
+      "restSeconds": 75,
+      "image": "/images/barbell-row.svg",
+      "notes": "Húzd a köldökhöz, mellkas ki, lapockák össze a végponton, törzs stabilan"
+    },
+    {
+      "order": 6,
+      "name": "Face Pull",
+      "equipment": "cable",
+      "defaultWeight": 14,
+      "defaultReps": 15,
+      "restSeconds": 60,
+      "image": "/images/face-pull.svg",
+      "notes": "Archoz húzd vállmagasságban, külső rotáció a végén, könyök magasan"
+    },
+    {
+      "order": 7,
+      "name": "Hammer Curl (Cable)",
+      "equipment": "cable",
+      "defaultWeight": 22,
+      "defaultReps": 10,
+      "restSeconds": 60,
+      "image": "/images/barbell-row.svg",
+      "notes": "Semleges fogás, könyök fixált, lassan és kontrolláltan engedd le"
+    }
+  ]
+}

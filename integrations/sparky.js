@@ -158,5 +158,7 @@ export async function pushToSparkyFitness({ session, sets, exercise_times }) {
     throw new Error(`SparkyFitness API ${res.status}: ${text}`);
   }
 
-  return res.json();
+  const data = await res.json();
+  console.log(`[SparkyFitness] pushed: ${caloriesBurned} kcal, ${durationMinutes} min → entry ${data.id}`);
+  return data;
 }

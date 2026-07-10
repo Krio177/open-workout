@@ -1,0 +1,88 @@
+{
+  "id": "push-a-heavy",
+  "name": "Push A (Heavy)",
+  "defaultRestSeconds": 90,
+  "color": "#ef4444",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Barbell Bench Press",
+      "equipment": "barbell",
+      "defaultWeight": 70,
+      "defaultReps": 8,
+      "restSeconds": 120,
+      "image": "/images/bench-press.svg",
+      "notes": "Lapocka összenyomva, lassan le a mellkashoz, robbanékony fel, könyök ne csapjon ki"
+    },
+    {
+      "order": 2,
+      "name": "Decline Bench Press (Barbell)",
+      "equipment": "barbell",
+      "defaultWeight": 80,
+      "defaultReps": 8,
+      "restSeconds": 90,
+      "image": "/images/bench-press.svg",
+      "notes": "Mellkast érintsd, szélesebb fogás, hangsúly az alsó mellkason"
+    },
+    {
+      "order": 3,
+      "name": "Incline Dumbbell Press",
+      "equipment": "dumbbell",
+      "defaultWeight": 24,
+      "defaultReps": 8,
+      "restSeconds": 90,
+      "image": "/images/dumbbell-fly.svg",
+      "notes": "30-45 fokos pad, könyök ne menjen a váll alá, dumbbelleket enyhén fordítsd össze fent"
+    },
+    {
+      "order": 4,
+      "name": "Seated Overhead Press (Barbell)",
+      "equipment": "barbell",
+      "defaultWeight": 50,
+      "defaultReps": 8,
+      "restSeconds": 120,
+      "image": "/images/overhead-press.svg",
+      "notes": "Törzs egyenes, ne dőlj hátra, fejed nyomásnál engedj előre a rúd előtt"
+    },
+    {
+      "order": 5,
+      "name": "Dumbbell Pullover",
+      "equipment": "dumbbell",
+      "defaultWeight": 40,
+      "defaultReps": 8,
+      "restSeconds": 75,
+      "image": "/images/dumbbell-fly.svg",
+      "notes": "Könyök enyhén hajlított végig, érezd a szélső hátizmot és a mellkast, lassan le"
+    },
+    {
+      "order": 6,
+      "name": "Overhead Triceps Extension (Barbell)",
+      "equipment": "barbell",
+      "defaultWeight": 24,
+      "defaultReps": 8,
+      "restSeconds": 60,
+      "image": "/images/overhead-press.svg",
+      "notes": "Könyök szorosan a fejhez, csak az alkar mozog, teljes nyújtás fent"
+    },
+    {
+      "order": 7,
+      "name": "Cable Lateral Raise",
+      "equipment": "cable",
+      "defaultWeight": 9,
+      "defaultReps": 10,
+      "restSeconds": 60,
+      "image": "/images/lateral-raise.svg",
+      "notes": "Kissé előre dőlve, kis hajlat a könyökben, ne emeld a vállat, kis szünet fent"
+    },
+    {
+      "order": 8,
+      "name": "Triceps Pushdown (Cable)",
+      "equipment": "cable",
+      "defaultWeight": 24,
+      "defaultReps": 8,
+      "restSeconds": 60,
+      "image": "/images/rear-delt-fly.svg",
+      "notes": "Könyök fixált az oldaladon, teljes nyújtás lent, lassan fel"
+    }
+  ]
+}
