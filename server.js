@@ -102,7 +102,7 @@ app.get('/api/exercises/:exerciseName/images', async (c) => {
 app.get('/api/exercises/:name/note', async (c) => {
   const name = decodeURIComponent(c.req.param('name'));
   const res = await pool.query(
-    'SELECT note, updated_at FROM exercise_notes WHERE exercise_name = $1',
+    'SELECT note FROM exercise_notes WHERE exercise_name = $1',
     [name]
   );
   return c.json({ note: res.rows[0]?.note ?? null });
@@ -123,7 +123,7 @@ app.put('/api/exercises/:name/note', async (c) => {
      RETURNING note, updated_at`,
     [name, note.trim()]
   );
-  return c.json(res.rows[0]);
+  return c.json({ note: res.rows[0].note });
 });
 
 // --- Workout definition endpoints ---
