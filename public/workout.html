@@ -174,7 +174,7 @@
               <div class="mt-3">
                 <textarea
                   x-model="exerciseNote"
-                  @blur="saveExerciseNote()"
+                  @blur="saveExerciseNote(currentExercise?.name)"
                   placeholder="Megjegyzés..."
                   rows="2"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-500 transition"
@@ -438,15 +438,18 @@
           this.exerciseNote = data.note || '';
         },
 
-        async saveExerciseNote() {
-          if (!this.currentExercise) return;
+        async saveExerciseNote(name) {
+          if (!name) return;
           this.noteSaving = true;
-          await fetch(`/api/exercises/${encodeURIComponent(this.currentExercise.name)}/note`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ note: this.exerciseNote }),
-          });
-          this.noteSaving = false;
+          try {
+            await fetch(`/api/exercises/${encodeURIComponent(name)}/note`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ note: this.exerciseNote }),
+            });
+          } finally {
+            this.noteSaving = false;
+          }
         },
 
         async loadExerciseImages() {
