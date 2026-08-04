@@ -9,16 +9,18 @@
     {
       "order": 1,
       "name": "Felhuzas",
+      "sparkyId": null,
       "equipment": "barbell",
       "defaultWeight": 70,
       "defaultReps": 6,
-      "defaultSets": 4,
+      "defaultSets": 3,
       "restSeconds": 150,
       "image": "/images/deadlift.svg"
     },
     {
       "order": 2,
       "name": "Evezes",
+      "sparkyId": null,
       "equipment": "barbell",
       "defaultWeight": 50,
       "defaultReps": 8,
@@ -29,6 +31,7 @@
     {
       "order": 3,
       "name": "Lat huzas",
+      "sparkyId": null,
       "equipment": "cable",
       "defaultWeight": 40,
       "defaultReps": 10,
@@ -39,6 +42,7 @@
     {
       "order": 4,
       "name": "Arckezeles",
+      "sparkyId": null,
       "equipment": "cable",
       "defaultWeight": 20,
       "defaultReps": 12,

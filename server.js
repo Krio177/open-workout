@@ -6,7 +6,7 @@ import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool, { connect } from './db/client.js';
-import { pushToSparkyFitness } from './integrations/sparky.js';
+import { pushToSparkyFitness, buildSparkyMap } from './integrations/sparky.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -454,6 +454,7 @@ const port = process.env.PORT || 3000;
 
 await connect();
 await loadWorkouts();
+buildSparkyMap(workouts);
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Server running on http://localhost:${info.port}`);
 });

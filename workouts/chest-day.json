@@ -9,6 +9,7 @@
     {
       "order": 1,
       "name": "Fekvenyomas",
+      "sparkyId": null,
       "equipment": "barbell",
       "defaultWeight": 60,
       "defaultReps": 8,
@@ -20,6 +21,7 @@
     {
       "order": 2,
       "name": "Tamas kar elore",
+      "sparkyId": null,
       "equipment": "dumbbell",
       "defaultWeight": 14,
       "defaultReps": 10,
@@ -30,6 +32,7 @@
     {
       "order": 3,
       "name": "Kabel keresztezes",
+      "sparkyId": null,
       "equipment": "cable",
       "defaultWeight": 15,
       "defaultReps": 12,

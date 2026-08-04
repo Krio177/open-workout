@@ -9,10 +9,11 @@
     {
       "order": 1,
       "name": "Guggolas",
+      "sparkyId": null,
       "equipment": "barbell",
       "defaultWeight": 80,
       "defaultReps": 6,
-      "defaultSets": 4,
+      "defaultSets": 3,
       "restSeconds": 150,
       "notes": "Teljes tartomany",
       "image": "/images/squat.svg"
@@ -20,6 +21,7 @@
     {
       "order": 2,
       "name": "Kitores",
+      "sparkyId": null,
       "equipment": "dumbbell",
       "defaultWeight": 20,
       "defaultReps": 10,
@@ -30,6 +32,7 @@
     {
       "order": 3,
       "name": "Romaniai felhuzas",
+      "sparkyId": null,
       "equipment": "barbell",
       "defaultWeight": 60,
       "defaultReps": 8,
@@ -40,6 +43,7 @@
     {
       "order": 4,
       "name": "Vadli emeles",
+      "sparkyId": null,
       "equipment": "machine",
       "defaultWeight": 60,
       "defaultReps": 12,

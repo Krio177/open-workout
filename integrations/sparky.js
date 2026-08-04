@@ -1,10 +1,12 @@
 /**
- * SparkyFitness integration — posts finished workout as a single exercise entry.
+ * SparkyFitness integration — posts one exercise entry per exercise type in the finished workout.
  *
  * Required env vars:
  *   SPARKY_FITNESS_URL          — base URL, e.g. http://localhost:3004
  *   SPARKY_FITNESS_API_KEY      — Bearer token with health_data_write permission
- *   SPARKY_FITNESS_EXERCISE_ID  — UUID of the exercise to log under (e.g. "Strength Training")
+ *
+ * Exercise → Sparky UUID mapping comes from the workout JSON files (sparkyId field).
+ * Call buildSparkyMap(workoutsMap) at startup to populate the map.
  *
  * Optional:
  *   SPARKY_FITNESS_BODY_MASS_KG — body mass in kg for calorie calculation (default: 70)
@@ -30,33 +32,42 @@ const EXERCISE_PARAMS = {
   squat:                [0.50, 0.65],
   'front squat':        [0.50, 0.65],
   guggolás:             [0.50, 0.65],
+  guggolas:             [0.50, 0.65],
   lunge:                [0.45, 0.65],
   kitörés:              [0.45, 0.65],
+  kitores:              [0.45, 0.65],
   'leg press':          [0.40, 0.00],
   'romanian deadlift':  [0.55, 0.10],
+  'romaniai felhuzas':  [0.55, 0.10],
   'rdl':                [0.55, 0.10],
   deadlift:             [0.60, 0.10],
   felhúzás:             [0.60, 0.10],
+  felhuzas:             [0.60, 0.10],
   'sumo deadlift':      [0.55, 0.10],
   'hip thrust':         [0.25, 0.55],
   'glute bridge':       [0.20, 0.55],
   'leg curl':           [0.40, 0.00],
   'leg extension':      [0.40, 0.00],
   'calf raise':         [0.10, 0.00],
+  'vadli emeles':       [0.10, 0.00],
 
   // Upper body push
   'bench press':        [0.40, 0.05],
   fekvenyomás:          [0.40, 0.05],
+  fekvenyomas:          [0.40, 0.05],
   'incline bench':      [0.40, 0.05],
   'decline bench':      [0.35, 0.05],
   'overhead press':     [0.50, 0.05],
   'shoulder press':     [0.50, 0.05],
+  'nyomas allva':       [0.50, 0.05],
   'vállból nyomás':     [0.50, 0.05],
   'military press':     [0.50, 0.05],
   'push press':         [0.55, 0.05],
   dip:                  [0.45, 0.40],
   'chest fly':          [0.50, 0.02],
+  'tamas kar elore':    [0.50, 0.02],
   'cable fly':          [0.50, 0.02],
+  'kabel keresztezes':  [0.50, 0.02],
   'tricep pushdown':    [0.35, 0.00],
   'triceps pushdown':   [0.35, 0.00],
   'skull crusher':      [0.35, 0.02],
@@ -67,13 +78,19 @@ const EXERCISE_PARAMS = {
   'chin up':            [0.55, 0.65],
   'chinup':             [0.55, 0.65],
   'lat pulldown':       [0.55, 0.00],
+  'lat huzas':          [0.55, 0.00],
   'seated row':         [0.45, 0.00],
   'cable row':          [0.45, 0.00],
   'bent over row':      [0.40, 0.10],
   'barbell row':        [0.40, 0.10],
+  evezes:               [0.40, 0.10],
   't-bar row':          [0.40, 0.10],
   'face pull':          [0.35, 0.00],
+  arckezeles:           [0.35, 0.00],
   shrug:                [0.10, 0.00],
+  'trapex emeles':      [0.10, 0.00],
+  'oldal emeles':       [0.30, 0.00],
+  'far emeles':         [0.30, 0.00],
   'bicep curl':         [0.35, 0.02],
   'biceps curl':        [0.35, 0.02],
   bicepsz:              [0.35, 0.02],
@@ -111,8 +128,28 @@ function kcalForSet(exerciseName, weightKg, reps, bodyMassKg) {
   return (joules / J_TO_KCAL) * ECCENTRIC / EFFICIENCY;
 }
 
+// exerciseName.toLowerCase() → sparkyId UUID
+// ponytail: module-level map, populated once at startup via buildSparkyMap
+const sparkyIdMap = new Map();
+
 /**
- * Pushes a finished workout session to SparkyFitness.
+ * Call this once after loading workout JSONs.
+ * @param {Map<string, object>} workoutsMap — the server's workouts Map (id → workout def)
+ */
+export function buildSparkyMap(workoutsMap) {
+  sparkyIdMap.clear();
+  for (const workout of workoutsMap.values()) {
+    for (const exercise of workout.exercises ?? []) {
+      if (exercise.sparkyId) {
+        sparkyIdMap.set(exercise.name.toLowerCase(), exercise.sparkyId);
+      }
+    }
+  }
+  console.log(`[SparkyFitness] mapped ${sparkyIdMap.size} exercise(s)`);
+}
+
+/**
+ * Pushes a finished workout session to SparkyFitness — one entry per exercise type.
  *
  * @param {{ session: object, sets: Array, exercise_times: Array }} finishResult
  *   The object returned by PUT /api/sessions/:id/finish
@@ -120,45 +157,58 @@ function kcalForSet(exerciseName, weightKg, reps, bodyMassKg) {
 export async function pushToSparkyFitness({ session, sets, exercise_times }) {
   const url = process.env.SPARKY_FITNESS_URL;
   const apiKey = process.env.SPARKY_FITNESS_API_KEY;
-  const exerciseId = process.env.SPARKY_FITNESS_EXERCISE_ID;
 
-  if (!url || !apiKey || !exerciseId) return; // not configured
+  if (!url || !apiKey) return; // not configured
 
   const bodyMassKg = parseFloat(process.env.SPARKY_FITNESS_BODY_MASS_KG) || 70;
-
-  // Sum calories from all non-warmup sets using mechanical work formula
-  const workSets = sets.filter(s => !s.is_warmup);
-  const caloriesBurned = workSets.length > 0
-    ? Math.round(workSets.reduce((sum, s) =>
-        sum + kcalForSet(s.exercise_name, Number(s.weight), s.reps, bodyMassKg), 0))
-    : 0;
-
-  // Duration from exercise_times (for informational logging in SparkyFitness)
-  const totalSeconds = exercise_times.reduce((sum, t) => sum + t.duration_seconds, 0);
-  const durationMinutes = Math.max(1, Math.round(totalSeconds / 60));
-
   const entryDate = new Date(session.started_at).toISOString().slice(0, 10);
 
-  const res = await fetch(`${url}/api/exercise-entries`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      exercise_id: exerciseId,
-      duration_minutes: durationMinutes,
-      calories_burned: caloriesBurned,
-      entry_date: entryDate,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`SparkyFitness API ${res.status}: ${text}`);
+  // Group non-warmup sets by exercise name
+  const byExercise = new Map();
+  for (const s of sets) {
+    if (s.is_warmup) continue;
+    const key = s.exercise_name;
+    if (!byExercise.has(key)) byExercise.set(key, []);
+    byExercise.get(key).push(s);
   }
 
-  const data = await res.json();
-  console.log(`[SparkyFitness] pushed: ${caloriesBurned} kcal, ${durationMinutes} min → entry ${data.id}`);
-  return data;
+  for (const [exerciseName, exerciseSets] of byExercise) {
+    const sparkyId = sparkyIdMap.get(exerciseName.toLowerCase());
+    if (!sparkyId) {
+      console.error(`[SparkyFitness] no sparkyId for exercise "${exerciseName}" — skipping`);
+      continue;
+    }
+
+    const caloriesBurned = Math.round(
+      exerciseSets.reduce((sum, s) => sum + kcalForSet(exerciseName, Number(s.weight), s.reps, bodyMassKg), 0)
+    );
+
+    // Duration for this exercise from exercise_times
+    const timeEntry = exercise_times.find(t => t.exercise_name === exerciseName);
+    const durationMinutes = timeEntry
+      ? Math.max(1, Math.round(timeEntry.duration_seconds / 60))
+      : 1;
+
+    const res = await fetch(`${url}/api/exercise-entries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        exercise_id: sparkyId,
+        duration_minutes: durationMinutes,
+        calories_burned: caloriesBurned,
+        entry_date: entryDate,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`SparkyFitness API ${res.status} for "${exerciseName}": ${text}`);
+    }
+
+    const data = await res.json();
+    console.log(`[SparkyFitness] "${exerciseName}": ${caloriesBurned} kcal, ${durationMinutes} min → entry ${data.id}`);
+  }
 }
