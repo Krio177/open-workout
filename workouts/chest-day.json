@@ -9,7 +9,7 @@
     {
       "order": 1,
       "name": "Fekvenyomas",
-      "sparkyId": null,
+      "sparkyId": "94d12386-b4ff-4d03-a499-065c31adb36e",
       "equipment": "barbell",
       "defaultWeight": 60,
       "defaultReps": 8,
@@ -21,7 +21,7 @@
     {
       "order": 2,
       "name": "Tamas kar elore",
-      "sparkyId": null,
+      "sparkyId": "8004d55b-791b-4168-925e-96f0edb63f46",
       "equipment": "dumbbell",
       "defaultWeight": 14,
       "defaultReps": 10,
@@ -32,7 +32,7 @@
     {
       "order": 3,
       "name": "Kabel keresztezes",
-      "sparkyId": null,
+      "sparkyId": "be340e52-ed24-4362-9484-b62d8ec14055",
       "equipment": "cable",
       "defaultWeight": 15,
       "defaultReps": 12,

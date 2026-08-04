@@ -9,7 +9,7 @@
     {
       "order": 1,
       "name": "Nyomas allva",
-      "sparkyId": null,
+      "sparkyId": "bcc2a66c-57fb-48a6-b0ad-1908593a62e6",
       "equipment": "barbell",
       "defaultWeight": 40,
       "defaultReps": 8,
@@ -20,7 +20,7 @@
     {
       "order": 2,
       "name": "Oldal emeles",
-      "sparkyId": null,
+      "sparkyId": "b65b5a2e-2b79-410d-b1fd-ea21ad9d7ea5",
       "equipment": "dumbbell",
       "defaultWeight": 10,
       "defaultReps": 12,
@@ -31,7 +31,7 @@
     {
       "order": 3,
       "name": "Far emeles",
-      "sparkyId": null,
+      "sparkyId": "4eb6bc3d-88a5-4593-a327-2a2b2e92ad7d",
       "equipment": "cable",
       "defaultWeight": 10,
       "defaultReps": 15,
@@ -42,7 +42,7 @@
     {
       "order": 4,
       "name": "Trapex emeles",
-      "sparkyId": null,
+      "sparkyId": "e6fcabff-0118-4ae4-8cab-26dd6c59f1e4",
       "equipment": "barbell",
       "defaultWeight": 40,
       "defaultReps": 10,
