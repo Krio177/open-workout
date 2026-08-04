@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS exercise_notes (
 
 -- Migrations
 ALTER TABLE exercise_sets ADD COLUMN IF NOT EXISTS is_warmup BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS rating SMALLINT;
+ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS sparky_last_entry_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON workout_sessions(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sets_session ON exercise_sets(session_id);

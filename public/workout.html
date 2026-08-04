@@ -423,6 +423,9 @@
             this.exerciseTimes[et.exercise_name] = et.duration_seconds;
           }
           this.startExerciseTimer();
+
+          // Reload on bfcache restore so stale/frozen state never shows
+          window.addEventListener('pageshow', (e) => { if (e.persisted) window.location.reload(); });
         },
 
         async switchExercise(i) {

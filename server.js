@@ -6,7 +6,7 @@ import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool, { connect } from './db/client.js';
-import { pushToSparkyFitness, buildSparkyMap } from './integrations/sparky.js';
+import { pushToSparkyFitness, buildSparkyMap, updateSparkyEntryNotes } from './integrations/sparky.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -239,16 +239,53 @@ app.put('/api/sessions/:id/finish', async (c) => {
 
   const finishResult = { session: res.rows[0], sets: setsRes.rows, newPrs: prRes.rows, exercise_times: timesRes.rows };
 
-  // Fire-and-forget: push to SparkyFitness without blocking the response
-  pushToSparkyFitness(finishResult).catch(err =>
-    console.error('[SparkyFitness] push failed:', err.message)
-  );
+  // Fire-and-forget: push to SparkyFitness, store last entry ID for later note/rating sync
+  pushToSparkyFitness(finishResult)
+    .then(lastEntryId => {
+      if (lastEntryId) pool.query(
+        'UPDATE workout_sessions SET sparky_last_entry_id = $2 WHERE id = $1',
+        [id, lastEntryId]
+      );
+    })
+    .catch(err => console.error('[SparkyFitness] push failed:', err.message));
 
   return c.json(finishResult);
 });
 
 app.delete('/api/sessions/:id', async (c) => {
   await pool.query('DELETE FROM workout_sessions WHERE id = $1', [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+app.put('/api/sessions/:id/note', async (c) => {
+  const { note } = await c.req.json();
+  await pool.query('UPDATE workout_sessions SET notes = $2 WHERE id = $1', [c.req.param('id'), note || null]);
+  return c.json({ ok: true });
+});
+
+app.put('/api/sessions/:id/rating', async (c) => {
+  const { rating } = await c.req.json();
+  await pool.query('UPDATE workout_sessions SET rating = $2 WHERE id = $1', [c.req.param('id'), rating || null]);
+  return c.json({ ok: true });
+});
+
+app.post('/api/sessions/:id/sparky-sync', async (c) => {
+  const sessionRes = await pool.query(
+    'SELECT notes, rating, sparky_last_entry_id FROM workout_sessions WHERE id = $1',
+    [c.req.param('id')]
+  );
+  if (!sessionRes.rows.length) return c.json({ error: 'Not found' }, 404);
+  const { notes, rating, sparky_last_entry_id } = sessionRes.rows[0];
+  if (!sparky_last_entry_id) return c.json({ ok: true, skipped: true });
+
+  const parts = [];
+  if (rating) parts.push(`Értékelés: ${rating}/10`);
+  if (notes) parts.push(notes);
+  const noteText = parts.join('\n');
+
+  updateSparkyEntryNotes(sparky_last_entry_id, noteText)
+    .catch(err => console.error('[SparkyFitness] note sync failed:', err.message));
+
   return c.json({ ok: true });
 });
 

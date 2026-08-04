@@ -149,28 +149,30 @@ export function buildSparkyMap(workoutsMap) {
 }
 
 /**
- * Pushes a finished workout session to SparkyFitness — one entry per exercise type.
+ * Pushes a finished workout session to SparkyFitness — one entry per exercise type,
+ * including all sets with weight/reps data.
  *
  * @param {{ session: object, sets: Array, exercise_times: Array }} finishResult
- *   The object returned by PUT /api/sessions/:id/finish
+ * @returns {string|null} Sparky entry ID of the last pushed exercise (for later note/rating update)
  */
 export async function pushToSparkyFitness({ session, sets, exercise_times }) {
   const url = process.env.SPARKY_FITNESS_URL;
   const apiKey = process.env.SPARKY_FITNESS_API_KEY;
 
-  if (!url || !apiKey) return; // not configured
+  if (!url || !apiKey) return null; // not configured
 
   const bodyMassKg = parseFloat(process.env.SPARKY_FITNESS_BODY_MASS_KG) || 70;
   const entryDate = new Date(session.started_at).toISOString().slice(0, 10);
+  const entryTime = new Date(session.started_at).toTimeString().slice(0, 5); // "HH:MM"
 
-  // Group non-warmup sets by exercise name
+  // Group ALL sets by exercise name (warmup + working)
   const byExercise = new Map();
   for (const s of sets) {
-    if (s.is_warmup) continue;
-    const key = s.exercise_name;
-    if (!byExercise.has(key)) byExercise.set(key, []);
-    byExercise.get(key).push(s);
+    if (!byExercise.has(s.exercise_name)) byExercise.set(s.exercise_name, []);
+    byExercise.get(s.exercise_name).push(s);
   }
+
+  let lastEntryId = null;
 
   for (const [exerciseName, exerciseSets] of byExercise) {
     const sparkyId = sparkyIdMap.get(exerciseName.toLowerCase());
@@ -179,15 +181,25 @@ export async function pushToSparkyFitness({ session, sets, exercise_times }) {
       continue;
     }
 
+    const workSets = exerciseSets.filter(s => !s.is_warmup);
     const caloriesBurned = Math.round(
-      exerciseSets.reduce((sum, s) => sum + kcalForSet(exerciseName, Number(s.weight), s.reps, bodyMassKg), 0)
+      workSets.reduce((sum, s) => sum + kcalForSet(exerciseName, Number(s.weight), s.reps, bodyMassKg), 0)
     );
 
-    // Duration for this exercise from exercise_times
     const timeEntry = exercise_times.find(t => t.exercise_name === exerciseName);
     const durationMinutes = timeEntry
       ? Math.max(1, Math.round(timeEntry.duration_seconds / 60))
       : 1;
+
+    const sparkySets = exerciseSets.map(s => ({
+      set_number: s.set_number,
+      set_type: s.is_warmup ? 'Warm-up Set' : 'Working Set',
+      reps: s.reps,
+      weight: Number(s.weight),
+      rpe: null,
+      duration: null,
+      rest_time: null,
+    }));
 
     const res = await fetch(`${url}/api/exercise-entries`, {
       method: 'POST',
@@ -197,9 +209,14 @@ export async function pushToSparkyFitness({ session, sets, exercise_times }) {
       },
       body: JSON.stringify({
         exercise_id: sparkyId,
-        duration_minutes: durationMinutes,
-        calories_burned: caloriesBurned,
+        sets: sparkySets,
+        notes: '',
         entry_date: entryDate,
+        entry_time: entryTime,
+        calories_burned: caloriesBurned,
+        duration_minutes: durationMinutes,
+        distance: null,
+        avg_heart_rate: null,
       }),
     });
 
@@ -209,6 +226,43 @@ export async function pushToSparkyFitness({ session, sets, exercise_times }) {
     }
 
     const data = await res.json();
-    console.log(`[SparkyFitness] "${exerciseName}": ${caloriesBurned} kcal, ${durationMinutes} min → entry ${data.id}`);
+    lastEntryId = data.id;
+    console.log(`[SparkyFitness] "${exerciseName}": ${workSets.length} sets, ${caloriesBurned} kcal → entry ${data.id}`);
   }
+
+  return lastEntryId;
+}
+
+/**
+ * Updates the notes field of a Sparky exercise entry (for session note + rating).
+ * GET current entry first to preserve all existing data, then PUT with notes updated.
+ * @param {string} entryId — Sparky entry ID
+ * @param {string} notes — formatted note text
+ */
+export async function updateSparkyEntryNotes(entryId, notes) {
+  const url = process.env.SPARKY_FITNESS_URL;
+  const apiKey = process.env.SPARKY_FITNESS_API_KEY;
+  if (!url || !apiKey || !entryId) return;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+  };
+
+  // GET current entry to preserve existing fields (set IDs etc.)
+  const getRes = await fetch(`${url}/api/exercise-entries/${entryId}`, { headers });
+  if (!getRes.ok) throw new Error(`SparkyFitness GET ${getRes.status}`);
+  const current = await getRes.json();
+
+  const putRes = await fetch(`${url}/api/exercise-entries/${entryId}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ ...current, notes }),
+  });
+
+  if (!putRes.ok) {
+    const text = await putRes.text();
+    throw new Error(`SparkyFitness PUT ${putRes.status}: ${text}`);
+  }
+  console.log(`[SparkyFitness] entry ${entryId} notes updated`);
 }
