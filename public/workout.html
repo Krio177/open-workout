@@ -327,6 +327,13 @@
     </div>
   </div>
 
+  <!-- Clock bar -->
+  <div class="fixed bottom-0 left-0 right-0 bg-zinc-950/90 backdrop-blur border-t border-zinc-800 flex justify-center py-2 pointer-events-none">
+    <span class="font-display font-700 text-7xl tabular-nums tracking-widest text-zinc-100" x-text="clockTime"></span>
+  </div>
+  <!-- Spacer so content isn't hidden behind clock bar -->
+  <div class="h-28"></div>
+
   <script>
     function workoutApp() {
       return {
@@ -341,6 +348,7 @@
         exerciseTimes: {}, exerciseStartedAt: null, exerciseElapsed: 0, exerciseTimerInterval: null,
         exerciseHistory: {}, historyVisible: false, historyChart: null,
         exerciseNote: '', noteSaving: false,
+        clockTime: '',
 
         get currentExercise() { return this.workout?.exercises?.[this.currentExerciseIndex]; },
         get exerciseSets() {
@@ -426,6 +434,10 @@
 
           // Reload on bfcache restore so stale/frozen state never shows
           window.addEventListener('pageshow', (e) => { if (e.persisted) window.location.reload(); });
+
+          const updateClock = () => { this.clockTime = new Date().toLocaleTimeString('hu', { hour: '2-digit', minute: '2-digit' }); };
+          updateClock();
+          setInterval(updateClock, 1000);
         },
 
         async switchExercise(i) {
