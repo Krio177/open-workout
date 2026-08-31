@@ -12,120 +12,77 @@
  *   SPARKY_FITNESS_BODY_MASS_KG — body mass in kg for calorie calculation (default: 70)
  */
 
-// Physics constants
-const G = 9.81;          // m/s²
-const J_TO_KCAL = 4184;  // joules per kcal
-const EFFICIENCY = 0.22; // human muscle mechanical efficiency (concentric)
-const ECCENTRIC = 1.2;   // multiplier to account for eccentric (lowering) phase energy cost
+// How much a heavy relative load (weight ÷ bodyweight) can boost the base MET.
+// avgRelLoad is capped here so e.g. a 2x-bodyweight deadlift can't blow up the multiplier.
+const LOAD_CAP = 1.5;
 
 /**
- * Exercise parameters: [ROM in metres, fraction of body mass that moves with the bar]
- *
- * ROM: average range of motion for the concentric phase
- * bodyFraction: fraction of lifter's body mass that travels the same ROM as the bar
- *   (e.g. squat moves ~65% of body mass up/down with the bar)
- *
+ * MET (metabolic equivalent) per exercise — ACSM resistance-training ballpark values:
+ *   3.5 = light/isolation, 5.0 = general/default, 6.0 = vigorous compound.
  * Unknown exercises fall back to DEFAULT.
  */
-const EXERCISE_PARAMS = {
-  // Lower body compound
-  squat:                [0.50, 0.65],
-  'front squat':        [0.50, 0.65],
-  guggolás:             [0.50, 0.65],
-  guggolas:             [0.50, 0.65],
-  lunge:                [0.45, 0.65],
-  kitörés:              [0.45, 0.65],
-  kitores:              [0.45, 0.65],
-  'leg press':          [0.40, 0.00],
-  'romanian deadlift':  [0.55, 0.10],
-  'romaniai felhuzas':  [0.55, 0.10],
-  'rdl':                [0.55, 0.10],
-  deadlift:             [0.60, 0.10],
-  felhúzás:             [0.60, 0.10],
-  felhuzas:             [0.60, 0.10],
-  'sumo deadlift':      [0.55, 0.10],
-  'hip thrust':         [0.25, 0.55],
-  'glute bridge':       [0.20, 0.55],
-  'leg curl':           [0.40, 0.00],
-  'leg extension':      [0.40, 0.00],
-  'calf raise':         [0.10, 0.00],
-  'vadli emeles':       [0.10, 0.00],
+const MET_TABLE = {
+  // Lower body compound (vigorous)
+  squat: 6.0, 'front squat': 6.0, guggolás: 6.0, guggolas: 6.0,
+  lunge: 6.0, kitörés: 6.0, kitores: 6.0,
+  'romanian deadlift': 6.0, 'romaniai felhuzas': 6.0, rdl: 6.0,
+  deadlift: 6.0, felhúzás: 6.0, felhuzas: 6.0, 'sumo deadlift': 6.0,
+  'hip thrust': 6.0, 'glute bridge': 5.0,
+  'leg press': 5.0, 'leg curl': 3.5, 'leg extension': 3.5,
+  'calf raise': 3.5, 'vadli emeles': 3.5,
 
   // Upper body push
-  'bench press':        [0.40, 0.05],
-  fekvenyomás:          [0.40, 0.05],
-  fekvenyomas:          [0.40, 0.05],
-  'incline bench':      [0.40, 0.05],
-  'decline bench':      [0.35, 0.05],
-  'overhead press':     [0.50, 0.05],
-  'shoulder press':     [0.50, 0.05],
-  'nyomas allva':       [0.50, 0.05],
-  'vállból nyomás':     [0.50, 0.05],
-  'military press':     [0.50, 0.05],
-  'push press':         [0.55, 0.05],
-  dip:                  [0.45, 0.40],
-  'chest fly':          [0.50, 0.02],
-  'tamas kar elore':    [0.50, 0.02],
-  'cable fly':          [0.50, 0.02],
-  'kabel keresztezes':  [0.50, 0.02],
-  'tricep pushdown':    [0.35, 0.00],
-  'triceps pushdown':   [0.35, 0.00],
-  'skull crusher':      [0.35, 0.02],
+  'bench press': 5.0, fekvenyomás: 5.0, fekvenyomas: 5.0,
+  'incline bench': 5.0, 'decline bench': 5.0,
+  'overhead press': 5.0, 'shoulder press': 5.0, 'nyomas allva': 5.0,
+  'vállból nyomás': 5.0, 'military press': 5.0, 'push press': 6.0,
+  dip: 5.0, 'chest fly': 3.5, 'tamas kar elore': 3.5,
+  'cable fly': 3.5, 'kabel keresztezes': 3.5,
+  'tricep pushdown': 3.5, 'triceps pushdown': 3.5, 'skull crusher': 3.5,
 
   // Upper body pull
-  'pull up':            [0.55, 0.65],
-  'pullup':             [0.55, 0.65],
-  'chin up':            [0.55, 0.65],
-  'chinup':             [0.55, 0.65],
-  'lat pulldown':       [0.55, 0.00],
-  'lat huzas':          [0.55, 0.00],
-  'seated row':         [0.45, 0.00],
-  'cable row':          [0.45, 0.00],
-  'bent over row':      [0.40, 0.10],
-  'barbell row':        [0.40, 0.10],
-  evezes:               [0.40, 0.10],
-  't-bar row':          [0.40, 0.10],
-  'face pull':          [0.35, 0.00],
-  arckezeles:           [0.35, 0.00],
-  shrug:                [0.10, 0.00],
-  'trapex emeles':      [0.10, 0.00],
-  'oldal emeles':       [0.30, 0.00],
-  'far emeles':         [0.30, 0.00],
-  'bicep curl':         [0.35, 0.02],
-  'biceps curl':        [0.35, 0.02],
-  bicepsz:              [0.35, 0.02],
-  'hammer curl':        [0.35, 0.02],
-  'preacher curl':      [0.30, 0.00],
+  'pull up': 6.0, pullup: 6.0, 'chin up': 6.0, chinup: 6.0,
+  'lat pulldown': 5.0, 'lat huzas': 5.0,
+  'seated row': 5.0, 'cable row': 5.0,
+  'bent over row': 5.0, 'barbell row': 5.0, evezes: 5.0, 't-bar row': 5.0,
+  'face pull': 3.5, arckezeles: 3.5, shrug: 3.5, 'trapex emeles': 3.5,
+  'oldal emeles': 3.5, 'far emeles': 3.5,
+  'bicep curl': 3.5, 'biceps curl': 3.5, bicepsz: 3.5,
+  'hammer curl': 3.5, 'preacher curl': 3.5,
 
-  // Default fallback for unrecognised exercises
-  DEFAULT:              [0.45, 0.05],
+  DEFAULT: 5.0,
 };
 
 /**
- * Look up exercise parameters by name.
- * Tries exact match (case-insensitive), then substring match.
+ * Look up MET by exercise name. Tries exact match (case-insensitive), then substring match.
  */
-function getExerciseParams(name) {
+function getMET(name) {
   const key = name.toLowerCase().trim();
-  if (EXERCISE_PARAMS[key]) return EXERCISE_PARAMS[key];
-  // Substring match — pick the first key that appears in the exercise name
-  for (const [k, v] of Object.entries(EXERCISE_PARAMS)) {
+  if (MET_TABLE[key] != null) return MET_TABLE[key];
+  for (const [k, v] of Object.entries(MET_TABLE)) {
     if (k !== 'DEFAULT' && key.includes(k)) return v;
   }
-  return EXERCISE_PARAMS.DEFAULT;
+  return MET_TABLE.DEFAULT;
 }
 
 /**
- * Calculate kcal burned for a single set using the mechanical work formula.
+ * Calculate kcal burned for an exercise using MET, time-under-load, and relative load.
  *
- *   W (J) = reps × (externalWeight + bodyMass × bodyFraction) × g × ROM
- *   kcal  = W / J_TO_KCAL × ECCENTRIC / EFFICIENCY
+ *   avgRelLoad = avg(weight × reps) / totalReps / bodyMass   — how heavy the sets were vs. bodyweight
+ *   kcal = MET × (1 + min(avgRelLoad, LOAD_CAP)) × bodyMass(kg) × duration(hours)
+ *
+ * The MET alone (ACSM tables) ignores how much weight was actually moved, so the same
+ * duration would burn the same calories whether the set was empty-bar or maxed out.
+ * The relative-load term nudges the MET up for heavier sets, closer to the old physics model.
  */
-function kcalForSet(exerciseName, weightKg, reps, bodyMassKg) {
-  const [rom, bodyFraction] = getExerciseParams(exerciseName);
-  const totalMass = weightKg + bodyMassKg * bodyFraction;
-  const joules = reps * totalMass * G * rom;
-  return (joules / J_TO_KCAL) * ECCENTRIC / EFFICIENCY;
+function kcalForExercise(exerciseName, workSets, durationMinutes, bodyMassKg) {
+  const met = getMET(exerciseName);
+  const totalReps = workSets.reduce((sum, s) => sum + s.reps, 0);
+  const avgRelLoad = totalReps
+    ? workSets.reduce((sum, s) => sum + Number(s.weight) * s.reps, 0) / totalReps / bodyMassKg
+    : 0;
+  const intensity = 1 + Math.min(avgRelLoad, LOAD_CAP);
+  return met * intensity * bodyMassKg * (durationMinutes / 60);
 }
 
 // exerciseName.toLowerCase() → sparkyId UUID
@@ -182,14 +139,13 @@ export async function pushToSparkyFitness({ session, sets, exercise_times }) {
     }
 
     const workSets = exerciseSets.filter(s => !s.is_warmup);
-    const caloriesBurned = Math.round(
-      workSets.reduce((sum, s) => sum + kcalForSet(exerciseName, Number(s.weight), s.reps, bodyMassKg), 0)
-    );
 
     const timeEntry = exercise_times.find(t => t.exercise_name === exerciseName);
     const durationMinutes = timeEntry
       ? Math.max(1, Math.round(timeEntry.duration_seconds / 60))
       : 1;
+
+    const caloriesBurned = Math.round(kcalForExercise(exerciseName, workSets, durationMinutes, bodyMassKg));
 
     const sparkySets = exerciseSets.map(s => ({
       set_number: s.set_number,
@@ -265,4 +221,24 @@ export async function updateSparkyEntryNotes(entryId, notes) {
     throw new Error(`SparkyFitness PUT ${putRes.status}: ${text}`);
   }
   console.log(`[SparkyFitness] entry ${entryId} notes updated`);
+}
+
+// ponytail: self-check for the kcalForExercise formula — run with `node integrations/sparky.js`
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const bodyMass = 80;
+
+  const bodyweightOnly = kcalForExercise('squat', [{ weight: 0, reps: 10 }], 3, bodyMass);
+  console.assert(Math.abs(bodyweightOnly - 6.0 * bodyMass * (3 / 60)) < 1e-9, 'bodyweight-only should equal base MET × bodyMass × hours');
+
+  const heavy = kcalForExercise('squat', [{ weight: bodyMass, reps: 10 }], 3, bodyMass);
+  console.assert(heavy > bodyweightOnly * 1.9, 'a bodyweight-equivalent load should roughly double the base burn');
+
+  const capped = kcalForExercise('squat', [{ weight: bodyMass * 10, reps: 10 }], 3, bodyMass);
+  const maxPossible = 6.0 * (1 + LOAD_CAP) * bodyMass * (3 / 60);
+  console.assert(Math.abs(capped - maxPossible) < 1e-9, 'load multiplier must be capped at LOAD_CAP');
+
+  const unknown = kcalForExercise('made up exercise xyz', [{ weight: 0, reps: 10 }], 3, bodyMass);
+  console.assert(Math.abs(unknown - 5.0 * bodyMass * (3 / 60)) < 1e-9, 'unknown exercise should fall back to DEFAULT MET');
+
+  console.log('[sparky.js] self-check passed');
 }
