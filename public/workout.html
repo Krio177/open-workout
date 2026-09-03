@@ -167,7 +167,9 @@
                   <span x-text="formatDuration(exerciseElapsed)"></span>
                 </span>
                 <template x-for="mg in (currentExercise.muscleGroups || [])" :key="mg">
-                  <span class="text-[9px] uppercase tracking-wider text-zinc-500 border border-zinc-700 rounded px-1.5 py-0.5" x-text="mg"></span>
+                  <span class="text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 border"
+                        :style="`color: ${muscleGroupColor(mg)}; border-color: ${muscleGroupColor(mg)}50; background: ${muscleGroupColor(mg)}15`"
+                        x-text="mg"></span>
                 </template>
               </div>
               <template x-if="currentExercise.notes">
@@ -338,8 +340,15 @@
   <div class="h-28"></div>
 
   <script>
+    const MUSCLE_PALETTE = ['#ef4444', '#3b82f6', '#8b5cf6', '#f59e0b', '#f97316', '#22c55e', '#10b981', '#ec4899', '#06b6d4', '#a855f7', '#eab308', '#14b8a6'];
+    function muscleGroupColor(mg) {
+      let hash = 0;
+      for (let i = 0; i < mg.length; i++) hash = mg.charCodeAt(i) + ((hash << 5) - hash);
+      return MUSCLE_PALETTE[Math.abs(hash) % MUSCLE_PALETTE.length];
+    }
     function workoutApp() {
       return {
+        muscleGroupColor,
         sessionId: null, workout: null, session: null, lastSession: null,
         currentExerciseIndex: 0, allSets: {},
         elapsedSeconds: 0, elapsedInterval: null,
