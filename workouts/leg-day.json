@@ -16,6 +16,7 @@
       "defaultSets": 3,
       "restSeconds": 150,
       "notes": "Teljes tartomany",
+      "muscleGroups": ["Comb", "Farizom"],
       "image": "/images/squat.svg"
     },
     {
@@ -27,6 +28,7 @@
       "defaultReps": 10,
       "defaultSets": 3,
       "restSeconds": 90,
+      "muscleGroups": ["Comb", "Farizom"],
       "image": "/images/lunge.svg"
     },
     {
@@ -38,6 +40,7 @@
       "defaultReps": 8,
       "defaultSets": 3,
       "restSeconds": 90,
+      "muscleGroups": ["Comb hajlito", "Farizom"],
       "image": "/images/rdl.svg"
     },
     {
@@ -49,6 +52,7 @@
       "defaultReps": 12,
       "defaultSets": 3,
       "restSeconds": 60,
+      "muscleGroups": ["Vadli"],
       "image": "/images/calf-raise.svg"
     }
   ]

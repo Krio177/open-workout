@@ -15,6 +15,7 @@
       "defaultReps": 8,
       "defaultSets": 3,
       "restSeconds": 120,
+      "muscleGroups": ["Vall", "Tricepsz"],
       "image": "/images/overhead-press.svg"
     },
     {
@@ -26,6 +27,7 @@
       "defaultReps": 12,
       "defaultSets": 3,
       "restSeconds": 60,
+      "muscleGroups": ["Vall"],
       "image": "/images/lateral-raise.svg"
     },
     {
@@ -37,6 +39,7 @@
       "defaultReps": 15,
       "defaultSets": 3,
       "restSeconds": 60,
+      "muscleGroups": ["Vall"],
       "image": "/images/rear-delt-fly.svg"
     },
     {
@@ -48,6 +51,7 @@
       "defaultReps": 10,
       "defaultSets": 3,
       "restSeconds": 75,
+      "muscleGroups": ["Trapez"],
       "image": "/images/shrug.svg"
     }
   ]

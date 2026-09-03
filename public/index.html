@@ -44,6 +44,15 @@
       <div class="flex-1 h-px bg-zinc-800"></div>
       <span class="text-[9px] uppercase tracking-[0.15em] text-green-400 bg-green-400/10 px-2.5 py-1 rounded border border-green-400/25" x-text="'Kovetkezo: #' + (nextIndex + 1)"></span>
     </div>
+
+    <!-- Muscle group counts -->
+    <div class="flex flex-wrap gap-2 mb-8" x-show="Object.keys(muscleGroupCounts).length">
+      <template x-for="[mg, count] in Object.entries(muscleGroupCounts)" :key="mg">
+        <span class="text-[10px] uppercase tracking-wider text-zinc-400 border border-zinc-800 rounded-full px-3 py-1 bg-zinc-900/60">
+          <span x-text="mg"></span> <span class="text-zinc-600" x-text="'· ' + count"></span>
+        </span>
+      </template>
+    </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <template x-for="(w, i) in workouts" :key="w.id">
         <div @click="startWorkout(w.id)"
@@ -87,6 +96,11 @@
                             class="text-[10px] text-zinc-600 font-medium" x-text="ex.order"></span>
                     </div>
                     <span class="text-sm text-zinc-500 group-hover:text-zinc-300 transition" x-text="ex.name"></span>
+                    <div class="flex gap-1 flex-wrap">
+                      <template x-for="mg in (ex.muscleGroups || [])" :key="mg">
+                        <span class="text-[9px] uppercase tracking-wider text-zinc-500 border border-zinc-700 rounded px-1.5 py-0.5" x-text="mg"></span>
+                      </template>
+                    </div>
                   </div>
                 </template>
               </div>
@@ -255,6 +269,15 @@
         resumeWorkout(workoutId) {
           const session = this.activeSessions[workoutId];
           if (session) window.location.href = `/workout.html?id=${session.id}`;
+        },
+        get muscleGroupCounts() {
+          const counts = {};
+          for (const w of this.workouts) {
+            for (const ex of w.exercises) {
+              for (const mg of ex.muscleGroups || []) counts[mg] = (counts[mg] || 0) + 1;
+            }
+          }
+          return counts;
         },
         get hasAnyActive() {
           return Object.keys(this.activeSessions).length > 0;

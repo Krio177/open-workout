@@ -15,6 +15,7 @@
       "defaultReps": 6,
       "defaultSets": 3,
       "restSeconds": 150,
+      "muscleGroups": ["Hat", "Farizom", "Comb hajlito"],
       "image": "/images/deadlift.svg"
     },
     {
@@ -26,6 +27,7 @@
       "defaultReps": 8,
       "defaultSets": 3,
       "restSeconds": 90,
+      "muscleGroups": ["Hat", "Bicepsz"],
       "image": "/images/barbell-row.svg"
     },
     {
@@ -37,6 +39,7 @@
       "defaultReps": 10,
       "defaultSets": 3,
       "restSeconds": 75,
+      "muscleGroups": ["Hat", "Bicepsz"],
       "image": "/images/lat-pulldown.svg"
     },
     {
@@ -48,6 +51,7 @@
       "defaultReps": 12,
       "defaultSets": 3,
       "restSeconds": 60,
+      "muscleGroups": ["Vall", "Hat"],
       "image": "/images/face-pull.svg"
     }
   ]

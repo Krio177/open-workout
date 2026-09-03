@@ -16,6 +16,7 @@
       "defaultSets": 3,
       "restSeconds": 120,
       "notes": "Lassan engedd le",
+      "muscleGroups": ["Mell", "Tricepsz", "Vall"],
       "image": "/images/bench-press.svg"
     },
     {
@@ -27,6 +28,7 @@
       "defaultReps": 10,
       "defaultSets": 3,
       "restSeconds": 90,
+      "muscleGroups": ["Mell"],
       "image": "/images/dumbbell-fly.svg"
     },
     {
@@ -38,6 +40,7 @@
       "defaultReps": 12,
       "defaultSets": 3,
       "restSeconds": 60,
+      "muscleGroups": ["Mell"],
       "image": "/images/cable-crossover.svg"
     }
   ]
