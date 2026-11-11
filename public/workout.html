@@ -22,6 +22,8 @@
     input[type=number]::-webkit-inner-spin-button { opacity: 0.3; }
     input[type=number]:focus::-webkit-inner-spin-button { opacity: 1; }
   </style>
+  <link rel="stylesheet" href="/theme.css">
+  <script defer src="/theme.js"></script>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="workoutApp()">
 
@@ -176,6 +178,7 @@
                 <span>Legjobb: <span class="font-semibold" x-text="currentPr?.max_weight + 'kg x ' + (currentPr?.max_reps ?? '?')"></span></span>
                 <span class="text-blue-700">·</span>
                 <span>1RM ~<span class="font-semibold" x-text="Math.round(currentPr?.max_one_rm) + 'kg'"></span></span>
+                <button @click="resetPr()" title="PR nullazasa" aria-label="PR nullazasa" class="ml-1 text-blue-500 hover:text-red-400 transition">&#x21BA;</button>
               </div>
               <template x-if="currentExercise.rackHeight || currentExercise.safetyHeight">
                 <div class="inline-flex items-center gap-1.5 mt-2 text-xs rounded border border-amber-500/40 bg-amber-500/10 text-amber-400 px-2 py-1">
@@ -380,6 +383,15 @@
         clockTime: '',
 
         get currentExercise() { return this.workout?.exercises?.[this.currentExerciseIndex]; },
+        async resetPr() {
+          const ex = this.currentExercise;
+          if (!confirm(`Nullazod a PR-t: ${ex.name}?`)) return;
+          const res = await fetch('/api/prs', {
+            method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exercise_name: ex.name, equipment: ex.equipment })
+          });
+          if (res.ok) delete this.prByKey[ex.name + '|' + ex.equipment];
+        },
         get currentPr() {
           const ex = this.currentExercise;
           if (!ex) return null;

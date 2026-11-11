@@ -8,6 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="/body-map.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -20,6 +21,8 @@
     @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     .animate-slide-up { animation: slideUp 0.4s ease-out both; }
   </style>
+  <link rel="stylesheet" href="/theme.css">
+  <script defer src="/theme.js"></script>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="dashboardApp()" x-init="init()">
 
@@ -45,14 +48,22 @@
       <span class="text-[9px] uppercase tracking-[0.15em] text-green-400 bg-green-400/10 px-2.5 py-1 rounded border border-green-400/25" x-text="'Kovetkezo: #' + (nextIndex + 1)"></span>
     </div>
 
-    <!-- Muscle group counts -->
-    <div class="flex flex-wrap gap-2 mb-8" x-show="Object.keys(muscleGroupCounts).length">
-      <template x-for="[mg, count] in Object.entries(muscleGroupCounts)" :key="mg">
-        <span class="text-[10px] uppercase tracking-wider rounded-full px-3 py-1 border"
-              :style="`color: ${muscleGroupColor(mg)}; border-color: ${muscleGroupColor(mg)}50; background: ${muscleGroupColor(mg)}15`">
-          <span x-text="mg"></span> <span x-text="'· ' + count"></span>
-        </span>
-      </template>
+    <!-- Muscle group body map -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 text-center" x-show="Object.keys(muscleGroupCounts).length">
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.15em] text-zinc-500">Hany gyakorlat dolgoztatja az egyes izmokat az osszes edzesben</p>
+        <p class="text-[10px] uppercase tracking-wider mt-1 mb-3 text-zinc-600">
+          <span style="color:#bbf7d0">1</span> · <span style="color:#4ade80">2</span> · <span style="color:#22d3ee">3</span> · <span style="color:#3b82f6">4+</span> gyakorlat
+        </p>
+        <div class="flex justify-center [&>svg]:h-64 [&>svg]:w-auto" x-html="bodyMapSvg(muscleGroupCounts)"></div>
+      </div>
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.15em] text-zinc-500">Mennyire pihent ki az izom az utolso edzes ota</p>
+        <p class="text-[10px] uppercase tracking-wider mt-1 mb-3 text-zinc-600">
+          <span style="color:#ef4444">friss</span> · <span style="color:#f97316">pihen</span> · <span style="color:#facc15">majdnem</span> · <span style="color:#22c55e">edzheto</span> (kis izom 48h, nagy 72h)
+        </p>
+        <div class="flex justify-center [&>svg]:h-64 [&>svg]:w-auto" x-html="recoveryMapSvg(lastTrained, workouts)"></div>
+      </div>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <template x-for="(w, i) in workouts" :key="w.id">
@@ -185,6 +196,7 @@
         activeSessions: {},
         nextIndex: 0,
         stats: null,
+        lastTrained: {},
         async init() {
           const [rotation, active] = await Promise.all([
             fetch('/api/workouts/rotation').then(r => r.json()),
@@ -198,6 +210,7 @@
             fetch(`/api/exercises/${encodeURIComponent(ex.name)}/images`).then(r => r.json())
               .then(data => { this.exerciseImages[ex.name] = data.images || []; })
           ));
+          this.lastTrained = await fetch('/api/exercises/last-trained').then(r => r.json());
           // Load stats
           this.stats = await fetch('/api/stats').then(r => r.json());
           this.$nextTick(() => this.renderCharts());
@@ -299,6 +312,8 @@
           return [...new Set(w.exercises.flatMap(ex => ex.muscleGroups || []))];
         },
         muscleGroupColor,
+        bodyMapSvg,
+        recoveryMapSvg,
         get hasAnyActive() {
           return Object.keys(this.activeSessions).length > 0;
         },

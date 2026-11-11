@@ -82,6 +82,13 @@ app.delete('/api/upload/:exerciseName/:filename', async (c) => {
   return c.json({ ok: true });
 });
 
+app.get('/api/exercises/last-trained', async (c) => {
+  const res = await pool.query(
+    `SELECT exercise_name, MAX(completed_at) AS last FROM exercise_sets WHERE is_warmup = false GROUP BY exercise_name`
+  );
+  return c.json(Object.fromEntries(res.rows.map(r => [r.exercise_name, r.last])));
+});
+
 app.get('/api/exercises/:exerciseName/images', async (c) => {
   const slug = slugify(c.req.param('exerciseName'));
   const dir = path.join(EXERCISE_IMAGES_DIR, slug);
@@ -422,6 +429,14 @@ app.get('/api/stats', async (c) => {
 app.get('/api/prs', async (c) => {
   const res = await pool.query('SELECT * FROM personal_records ORDER BY exercise_name');
   return c.json(res.rows);
+});
+
+// Reset a PR: the next logged set for this exercise + equipment becomes the new PR.
+app.delete('/api/prs', async (c) => {
+  const { exercise_name, equipment } = await c.req.json();
+  if (!exercise_name || !equipment) return c.json({ error: 'exercise_name and equipment required' }, 400);
+  await pool.query('DELETE FROM personal_records WHERE exercise_name = $1 AND equipment = $2', [exercise_name, equipment]);
+  return c.body(null, 204);
 });
 
 // --- JSON export ---
