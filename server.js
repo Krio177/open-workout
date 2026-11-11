@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pool, { connect } from './db/client.js';
 import { pushToSparkyFitness, buildSparkyMap, updateSparkyEntryNotes } from './integrations/sparky.js';
+import { brzycki1RM, computeIsNewPr } from './lib/pr-logic.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,12 +33,6 @@ async function loadWorkouts() {
     workouts.set(def.id, def);
   }
   console.log(`Loaded ${workouts.size} workout(s)`);
-}
-
-// --- Helpers ---
-function brzycki1RM(weight, reps) {
-  if (reps >= 37) return weight;
-  return weight * (36 / (37 - reps));
 }
 
 // --- App ---
@@ -321,41 +316,38 @@ app.post('/api/sessions/:id/sets', async (c) => {
   }
 
   const oneRM = brzycki1RM(weight, reps);
-  let isNewPr = false;
-  let previousPr = null;
 
   const currentPr = await pool.query(
     'SELECT * FROM personal_records WHERE exercise_name = $1 AND equipment = $2',
     [exercise_name, equipment]
   );
-  if (currentPr.rows.length > 0) {
-    previousPr = currentPr.rows[0];
-  }
+  const previousPr = currentPr.rows[0] || null;
+  const isNewPr = computeIsNewPr(weight, oneRM, previousPr);
 
   const prRes = await pool.query(
-    `INSERT INTO personal_records (exercise_name, equipment, max_weight, max_one_rm, session_id)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO personal_records (exercise_name, equipment, max_weight, max_one_rm, max_reps, session_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (exercise_name, equipment)
      DO UPDATE SET
-       max_weight = CASE WHEN EXCLUDED.max_weight > personal_records.max_weight
-                     THEN EXCLUDED.max_weight ELSE personal_records.max_weight END,
-       max_one_rm = CASE WHEN EXCLUDED.max_one_rm > personal_records.max_one_rm
-                    THEN EXCLUDED.max_one_rm ELSE personal_records.max_one_rm END,
+       max_weight = GREATEST(personal_records.max_weight, EXCLUDED.max_weight),
+       max_reps = CASE
+                    WHEN EXCLUDED.max_weight > personal_records.max_weight THEN EXCLUDED.max_reps
+                    WHEN EXCLUDED.max_weight = personal_records.max_weight
+                         AND EXCLUDED.max_reps > COALESCE(personal_records.max_reps, 0) THEN EXCLUDED.max_reps
+                    ELSE personal_records.max_reps
+                  END,
+       max_one_rm = GREATEST(personal_records.max_one_rm, EXCLUDED.max_one_rm),
        achieved_at = CASE WHEN EXCLUDED.max_weight > personal_records.max_weight
-                     THEN NOW() ELSE personal_records.achieved_at END,
+                           OR EXCLUDED.max_one_rm > personal_records.max_one_rm
+                          THEN NOW() ELSE personal_records.achieved_at END,
        session_id = CASE WHEN EXCLUDED.max_weight > personal_records.max_weight
-                    THEN EXCLUDED.session_id ELSE personal_records.session_id END
+                          OR EXCLUDED.max_one_rm > personal_records.max_one_rm
+                         THEN EXCLUDED.session_id ELSE personal_records.session_id END
      RETURNING *`,
-    [exercise_name, equipment, weight, oneRM, sessionId]
+    [exercise_name, equipment, weight, oneRM, reps, sessionId]
   );
 
-  if (previousPr && prRes.rows[0].session_id == sessionId && weight > previousPr.max_weight) {
-    isNewPr = true;
-  } else if (!previousPr) {
-    isNewPr = true;
-  }
-
-  return c.json({ set: setRes.rows[0], isNewPr, previousPr }, 201);
+  return c.json({ set: setRes.rows[0], isNewPr, previousPr, pr: prRes.rows[0] }, 201);
 });
 
 // --- Delete a set ---
@@ -469,7 +461,7 @@ app.get('/api/exercises/:name/history', async (c) => {
   const limit = parseInt(c.req.query('limit')) || 10;
   const res = await pool.query(
     `SELECT s.started_at::date as date, MAX(es.weight) as max_weight,
-            (array_agg(es.reps ORDER BY es.weight DESC))[1] as max_reps
+            (array_agg(es.reps ORDER BY es.weight DESC, es.reps DESC))[1] as max_reps
      FROM exercise_sets es
      JOIN workout_sessions s ON s.id = es.session_id
      WHERE es.exercise_name = $1 AND s.finished_at IS NOT NULL AND es.is_warmup = false

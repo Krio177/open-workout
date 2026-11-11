@@ -47,6 +47,20 @@ CREATE TABLE IF NOT EXISTS exercise_notes (
 
 -- Migrations
 ALTER TABLE exercise_sets ADD COLUMN IF NOT EXISTS is_warmup BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE personal_records ADD COLUMN IF NOT EXISTS max_reps INTEGER;
+
+-- Backfill max_reps for records created before the column existed
+UPDATE personal_records pr
+SET max_reps = sub.reps
+FROM (
+  SELECT DISTINCT ON (es.exercise_name, es.equipment)
+    es.exercise_name, es.equipment, es.reps
+  FROM exercise_sets es
+  JOIN workout_sessions s ON s.id = es.session_id
+  WHERE es.is_warmup = false AND s.finished_at IS NOT NULL
+  ORDER BY es.exercise_name, es.equipment, es.weight DESC, es.reps DESC
+) sub
+WHERE pr.exercise_name = sub.exercise_name AND pr.equipment = sub.equipment AND pr.max_reps IS NULL;
 ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS rating SMALLINT;
 ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS sparky_last_entry_id TEXT;
 
