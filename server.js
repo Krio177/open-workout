@@ -6,6 +6,8 @@ import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool, { connect } from './db/client.js';
+import { pushToSparkyFitness, buildSparkyMap, updateSparkyEntryNotes } from './integrations/sparky.js';
+import { brzycki1RM, computeIsNewPr } from './lib/pr-logic.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,12 +33,6 @@ async function loadWorkouts() {
     workouts.set(def.id, def);
   }
   console.log(`Loaded ${workouts.size} workout(s)`);
-}
-
-// --- Helpers ---
-function brzycki1RM(weight, reps) {
-  if (reps >= 37) return weight;
-  return weight * (36 / (37 - reps));
 }
 
 // --- App ---
@@ -96,6 +92,33 @@ app.get('/api/exercises/:exerciseName/images', async (c) => {
     .sort()
     .map(f => ({ filename: f, url: `/images/exercises/${slug}/${f}` }));
   return c.json({ images });
+});
+
+app.get('/api/exercises/:name/note', async (c) => {
+  const name = decodeURIComponent(c.req.param('name'));
+  const res = await pool.query(
+    'SELECT note FROM exercise_notes WHERE exercise_name = $1',
+    [name]
+  );
+  return c.json({ note: res.rows[0]?.note ?? null });
+});
+
+app.put('/api/exercises/:name/note', async (c) => {
+  const name = decodeURIComponent(c.req.param('name'));
+  const { note } = await c.req.json();
+  if (!note || !note.trim()) {
+    await pool.query('DELETE FROM exercise_notes WHERE exercise_name = $1', [name]);
+    return c.json({ note: null });
+  }
+  const res = await pool.query(
+    `INSERT INTO exercise_notes (exercise_name, note, updated_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (exercise_name)
+     DO UPDATE SET note = $2, updated_at = NOW()
+     RETURNING note, updated_at`,
+    [name, note.trim()]
+  );
+  return c.json({ note: res.rows[0].note });
 });
 
 // --- Workout definition endpoints ---
@@ -192,7 +215,7 @@ app.put('/api/sessions/:id/finish', async (c) => {
   const id = c.req.param('id');
 
   const totalRes = await pool.query(
-    'SELECT COALESCE(SUM(weight * reps), 0) as total FROM exercise_sets WHERE session_id = $1',
+    'SELECT COALESCE(SUM(weight * reps), 0) as total FROM exercise_sets WHERE session_id = $1 AND is_warmup = false',
     [id]
   );
   const totalWeight = totalRes.rows[0].total;
@@ -209,11 +232,55 @@ app.put('/api/sessions/:id/finish', async (c) => {
     pool.query('SELECT * FROM exercise_times WHERE session_id = $1', [id])
   ]);
 
-  return c.json({ session: res.rows[0], sets: setsRes.rows, newPrs: prRes.rows, exercise_times: timesRes.rows });
+  const finishResult = { session: res.rows[0], sets: setsRes.rows, newPrs: prRes.rows, exercise_times: timesRes.rows };
+
+  // Fire-and-forget: push to SparkyFitness, store last entry ID for later note/rating sync
+  pushToSparkyFitness(finishResult)
+    .then(lastEntryId => {
+      if (lastEntryId) pool.query(
+        'UPDATE workout_sessions SET sparky_last_entry_id = $2 WHERE id = $1',
+        [id, lastEntryId]
+      );
+    })
+    .catch(err => console.error('[SparkyFitness] push failed:', err.message));
+
+  return c.json(finishResult);
 });
 
 app.delete('/api/sessions/:id', async (c) => {
   await pool.query('DELETE FROM workout_sessions WHERE id = $1', [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+app.put('/api/sessions/:id/note', async (c) => {
+  const { note } = await c.req.json();
+  await pool.query('UPDATE workout_sessions SET notes = $2 WHERE id = $1', [c.req.param('id'), note || null]);
+  return c.json({ ok: true });
+});
+
+app.put('/api/sessions/:id/rating', async (c) => {
+  const { rating } = await c.req.json();
+  await pool.query('UPDATE workout_sessions SET rating = $2 WHERE id = $1', [c.req.param('id'), rating || null]);
+  return c.json({ ok: true });
+});
+
+app.post('/api/sessions/:id/sparky-sync', async (c) => {
+  const sessionRes = await pool.query(
+    'SELECT notes, rating, sparky_last_entry_id FROM workout_sessions WHERE id = $1',
+    [c.req.param('id')]
+  );
+  if (!sessionRes.rows.length) return c.json({ error: 'Not found' }, 404);
+  const { notes, rating, sparky_last_entry_id } = sessionRes.rows[0];
+  if (!sparky_last_entry_id) return c.json({ ok: true, skipped: true });
+
+  const parts = [];
+  if (rating) parts.push(`Értékelés: ${rating}/10`);
+  if (notes) parts.push(notes);
+  const noteText = parts.join('\n');
+
+  updateSparkyEntryNotes(sparky_last_entry_id, noteText)
+    .catch(err => console.error('[SparkyFitness] note sync failed:', err.message));
+
   return c.json({ ok: true });
 });
 
@@ -235,50 +302,52 @@ app.put('/api/sessions/:id/exercise-time', async (c) => {
 // --- Set logging with PR detection ---
 app.post('/api/sessions/:id/sets', async (c) => {
   const sessionId = c.req.param('id');
-  const { exercise_name, exercise_order, equipment, weight, reps, set_number } = await c.req.json();
+  const { exercise_name, exercise_order, equipment, weight, reps, set_number, is_warmup } = await c.req.json();
 
   const setRes = await pool.query(
-    `INSERT INTO exercise_sets (session_id, exercise_name, exercise_order, equipment, weight, reps, set_number)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [sessionId, exercise_name, exercise_order, equipment, weight, reps, set_number || 1]
+    `INSERT INTO exercise_sets (session_id, exercise_name, exercise_order, equipment, weight, reps, set_number, is_warmup)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [sessionId, exercise_name, exercise_order, equipment, weight, reps, set_number || 1, is_warmup || false]
   );
 
+  // Skip PR detection for warmup sets
+  if (is_warmup) {
+    return c.json({ set: setRes.rows[0], isNewPr: false, previousPr: null }, 201);
+  }
+
   const oneRM = brzycki1RM(weight, reps);
-  let isNewPr = false;
-  let previousPr = null;
 
   const currentPr = await pool.query(
     'SELECT * FROM personal_records WHERE exercise_name = $1 AND equipment = $2',
     [exercise_name, equipment]
   );
-  if (currentPr.rows.length > 0) {
-    previousPr = currentPr.rows[0];
-  }
+  const previousPr = currentPr.rows[0] || null;
+  const isNewPr = computeIsNewPr(weight, oneRM, previousPr);
 
   const prRes = await pool.query(
-    `INSERT INTO personal_records (exercise_name, equipment, max_weight, max_one_rm, session_id)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO personal_records (exercise_name, equipment, max_weight, max_one_rm, max_reps, session_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (exercise_name, equipment)
      DO UPDATE SET
-       max_weight = CASE WHEN EXCLUDED.max_weight > personal_records.max_weight
-                     THEN EXCLUDED.max_weight ELSE personal_records.max_weight END,
-       max_one_rm = CASE WHEN EXCLUDED.max_one_rm > personal_records.max_one_rm
-                    THEN EXCLUDED.max_one_rm ELSE personal_records.max_one_rm END,
+       max_weight = GREATEST(personal_records.max_weight, EXCLUDED.max_weight),
+       max_reps = CASE
+                    WHEN EXCLUDED.max_weight > personal_records.max_weight THEN EXCLUDED.max_reps
+                    WHEN EXCLUDED.max_weight = personal_records.max_weight
+                         AND EXCLUDED.max_reps > COALESCE(personal_records.max_reps, 0) THEN EXCLUDED.max_reps
+                    ELSE personal_records.max_reps
+                  END,
+       max_one_rm = GREATEST(personal_records.max_one_rm, EXCLUDED.max_one_rm),
        achieved_at = CASE WHEN EXCLUDED.max_weight > personal_records.max_weight
-                     THEN NOW() ELSE personal_records.achieved_at END,
+                           OR EXCLUDED.max_one_rm > personal_records.max_one_rm
+                          THEN NOW() ELSE personal_records.achieved_at END,
        session_id = CASE WHEN EXCLUDED.max_weight > personal_records.max_weight
-                    THEN EXCLUDED.session_id ELSE personal_records.session_id END
+                          OR EXCLUDED.max_one_rm > personal_records.max_one_rm
+                         THEN EXCLUDED.session_id ELSE personal_records.session_id END
      RETURNING *`,
-    [exercise_name, equipment, weight, oneRM, sessionId]
+    [exercise_name, equipment, weight, oneRM, reps, sessionId]
   );
 
-  if (previousPr && prRes.rows[0].session_id == sessionId && weight > previousPr.max_weight) {
-    isNewPr = true;
-  } else if (!previousPr) {
-    isNewPr = true;
-  }
-
-  return c.json({ set: setRes.rows[0], isNewPr, previousPr }, 201);
+  return c.json({ set: setRes.rows[0], isNewPr, previousPr, pr: prRes.rows[0] }, 201);
 });
 
 // --- Delete a set ---
@@ -355,11 +424,66 @@ app.get('/api/prs', async (c) => {
   return c.json(res.rows);
 });
 
+// --- JSON export ---
+app.get('/api/export', async (c) => {
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+  let query = `SELECT s.*, json_agg(
+      json_build_object(
+        'exercise_name', es.exercise_name, 'equipment', es.equipment,
+        'set_number', es.set_number, 'weight', es.weight, 'reps', es.reps,
+        'is_warmup', es.is_warmup, 'completed_at', es.completed_at
+      ) ORDER BY es.exercise_order, es.set_number
+    ) as sets
+    FROM workout_sessions s
+    JOIN exercise_sets es ON es.session_id = s.id
+    WHERE s.finished_at IS NOT NULL`;
+  const params = [];
+  if (from) { params.push(from); query += ` AND s.started_at >= $${params.length}`; }
+  if (to) { params.push(to + 'T23:59:59'); query += ` AND s.started_at <= $${params.length}`; }
+  query += ' GROUP BY s.id ORDER BY s.started_at DESC';
+
+  const res = await pool.query(query, params);
+  const sessions = res.rows.map(r => ({
+    ...r,
+    workout_name: workouts.get(r.workout_id)?.name || r.workout_id
+  }));
+  return c.json({
+    exported_at: new Date().toISOString(),
+    filter: { from: from || null, to: to || null },
+    sessions
+  });
+});
+
+// --- Exercise history ---
+app.get('/api/exercises/:name/history', async (c) => {
+  const name = decodeURIComponent(c.req.param('name'));
+  const limit = parseInt(c.req.query('limit')) || 10;
+  const res = await pool.query(
+    `SELECT s.started_at::date as date, MAX(es.weight) as max_weight,
+            (array_agg(es.reps ORDER BY es.weight DESC, es.reps DESC))[1] as max_reps
+     FROM exercise_sets es
+     JOIN workout_sessions s ON s.id = es.session_id
+     WHERE es.exercise_name = $1 AND s.finished_at IS NOT NULL AND es.is_warmup = false
+     GROUP BY s.id, s.started_at
+     ORDER BY s.started_at DESC LIMIT $2`,
+    [name, limit]
+  );
+  const history = res.rows.reverse().map(r => ({
+    date: r.date,
+    max_weight: Number(r.max_weight),
+    max_reps: r.max_reps,
+    one_rm: Math.round(brzycki1RM(Number(r.max_weight), r.max_reps) * 10) / 10
+  }));
+  return c.json({ exercise_name: name, history });
+});
+
 // --- Start ---
 const port = process.env.PORT || 3000;
 
 await connect();
 await loadWorkouts();
+buildSparkyMap(workouts);
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Server running on http://localhost:${info.port}`);
 });

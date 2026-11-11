@@ -1,0 +1,88 @@
+{
+  "id": "push-b-pull-b-volume",
+  "name": "Push B + Pull B (Volume)",
+  "defaultRestSeconds": 75,
+  "color": "#8b5cf6",
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Push Up",
+      "equipment": "bodyweight",
+      "defaultWeight": 0,
+      "defaultReps": 12,
+      "restSeconds": 60,
+      "image": "/images/bench-press.svg",
+      "notes": "Mellkas érjen a padlóhoz, törzs plankes végig, könyök ne csapjon ki"
+    },
+    {
+      "order": 2,
+      "name": "Bench Press (Dumbbell)",
+      "equipment": "dumbbell",
+      "defaultWeight": 30,
+      "defaultReps": 8,
+      "restSeconds": 90,
+      "image": "/images/dumbbell-fly.svg",
+      "notes": "Dumbbelleket enyhén forgasd össze fent, lassan le a mellkashoz, lapocka összenyomva"
+    },
+    {
+      "order": 3,
+      "name": "Dumbbell Lateral Raise",
+      "equipment": "dumbbell",
+      "defaultWeight": 10,
+      "defaultReps": 10,
+      "restSeconds": 60,
+      "image": "/images/lateral-raise.svg",
+      "notes": "Kissé előre dőlve, kis hajlat a könyökben, ne lendíts, kis szünet fent"
+    },
+    {
+      "order": 4,
+      "name": "Cable Fly",
+      "equipment": "cable",
+      "defaultWeight": 35,
+      "defaultReps": 8,
+      "restSeconds": 75,
+      "image": "/images/cable-crossover.svg",
+      "notes": "Enyhe hajlat a könyökben végig, ölelő mozdulat, érezd a mellkast összenyomódni"
+    },
+    {
+      "order": 5,
+      "name": "Cable Rear Delt Fly",
+      "equipment": "cable",
+      "defaultWeight": 12,
+      "defaultReps": 15,
+      "restSeconds": 60,
+      "image": "/images/rear-delt-fly.svg",
+      "notes": "Derékból hajolj előre, karok vízszintesen szét, hátsó deltát érezd, ne a hátizmot"
+    },
+    {
+      "order": 6,
+      "name": "Lat Pulldown (Cable)",
+      "equipment": "cable",
+      "defaultWeight": 65,
+      "defaultReps": 8,
+      "restSeconds": 75,
+      "image": "/images/lat-pulldown.svg",
+      "notes": "Mellkashoz húzd, ne a nyakhoz, lapockák össze a tetőn, lassan engedj fel"
+    },
+    {
+      "order": 7,
+      "name": "Cable Bicep Curl",
+      "equipment": "cable",
+      "defaultWeight": 24,
+      "defaultReps": 8,
+      "restSeconds": 60,
+      "image": "/images/barbell-row.svg",
+      "notes": "Könyök fixált, ne lendíts, lassan és kontrolláltan engedd le teljesen"
+    },
+    {
+      "order": 8,
+      "name": "Ring Dip",
+      "equipment": "bodyweight",
+      "defaultWeight": 0,
+      "defaultReps": 6,
+      "restSeconds": 75,
+      "image": "/images/bench-press.svg",
+      "notes": "Gyűrűk befelé forgatva lent, mellkas előre dőlve, mélyen le, stabilan fel"
+    }
+  ]
+}

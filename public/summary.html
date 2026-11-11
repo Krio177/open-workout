@@ -17,6 +17,10 @@
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .animate-fade { animation: fadeIn 0.5s ease-out both; }
+    .rating-slider { background: linear-gradient(to right, hsl(0,75%,45%), hsl(210,75%,45%), hsl(120,75%,45%)); }
+    .rating-slider::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--thumb-color); border: 2px solid rgba(255,255,255,0.15); cursor: pointer; transition: transform 0.1s; }
+    .rating-slider::-webkit-slider-thumb:active { transform: scale(1.2); }
+    .rating-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--thumb-color); border: 2px solid rgba(255,255,255,0.15); cursor: pointer; }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="summaryApp()" x-init="init()">
@@ -71,6 +75,41 @@
       </div>
     </div>
 
+    <!-- Rating + note -->
+    <div class="animate-fade space-y-4" style="animation-delay: 180ms" x-show="summary">
+
+      <!-- Rating slider -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-medium">Ertekeles</h2>
+          <span x-show="sessionRating" class="font-display text-lg font-600" :style="`color: ${ratingColor(sessionRating)}`" x-text="sessionRating + ' / 10'"></span>
+          <span x-show="!sessionRating" class="text-[10px] text-zinc-700 uppercase tracking-wider">Nem ertekelt</span>
+        </div>
+        <div class="relative">
+          <input type="range" min="1" max="10" step="1"
+            :value="sessionRating || 5"
+            @input="sessionRating = +$event.target.value"
+            @change="saveRating()"
+            class="w-full h-2 rounded-full appearance-none cursor-pointer rating-slider"
+            :style="`--thumb-color: ${ratingColor(sessionRating || 5)}`">
+        </div>
+        <div class="flex justify-between text-[9px] text-zinc-700 mt-1 px-0.5">
+          <span>Rossz</span><span>Jo</span>
+        </div>
+      </div>
+
+      <!-- Session note -->
+      <div>
+        <h2 class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-medium mb-2">Megjegyzes</h2>
+        <textarea
+          x-model="sessionNote"
+          @blur="saveNote()"
+          rows="3"
+          placeholder="Megjegyzes az edzeshez..."
+          class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-zinc-600 resize-none"></textarea>
+      </div>
+    </div>
+
     <!-- Sets -->
     <div x-show="summary?.sets?.length > 0" class="animate-fade" style="animation-delay: 200ms">
       <h2 class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-medium mb-3">Setek</h2>
@@ -106,10 +145,11 @@
   <script>
     function summaryApp() {
       return {
-        summary: null, workoutName: '', workoutColor: '',
+        summary: null, workoutName: '', workoutColor: '', sessionNote: '', sessionRating: null, sessionId: null,
         async init() {
           const id = new URLSearchParams(window.location.search).get('id');
           if (!id) { window.location.href = '/'; return; }
+          this.sessionId = id;
           const [sessionData, prData, workouts] = await Promise.all([
             fetch(`/api/sessions/${id}`).then(r => r.json()),
             fetch('/api/prs').then(r => r.json()),
@@ -118,8 +158,37 @@
           const w = workouts.find(w => w.id === sessionData.workout_id);
           this.workoutName = w?.name || '';
           this.workoutColor = w?.color || '#ef4444';
+          this.sessionNote = sessionData.notes || '';
+          this.sessionRating = sessionData.rating || null;
           this.summary = { ...sessionData, newPrs: prData.filter(pr => pr.session_id == id), exercise_times: sessionData.exercise_times || [] };
           this.$nextTick(() => this.renderChart());
+        },
+        async saveNote() {
+          await fetch(`/api/sessions/${this.sessionId}/note`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: this.sessionNote }),
+          });
+          this.syncSparky();
+        },
+        async saveRating() {
+          await fetch(`/api/sessions/${this.sessionId}/rating`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating: this.sessionRating }),
+          });
+          this.syncSparky();
+        },
+        syncSparky() {
+          fetch(`/api/sessions/${this.sessionId}/sparky-sync`, { method: 'POST' })
+            .catch(() => {});
+        },
+        ratingColor(v) {
+          // 1→red(0°)  5→blue(210°)  10→green(120°)
+          const hue = v <= 5
+            ? Math.round((v - 1) / 4 * 210)
+            : Math.round(210 + (v - 5) / 5 * (120 - 210));
+          return `hsl(${hue}, 75%, 55%)`;
         },
 
         renderChart() {

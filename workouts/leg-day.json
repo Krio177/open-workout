@@ -9,38 +9,50 @@
     {
       "order": 1,
       "name": "Guggolas",
+      "sparkyId": "4117cd57-f31f-4ac4-bc3b-71dd530e8657",
       "equipment": "barbell",
       "defaultWeight": 80,
       "defaultReps": 6,
+      "defaultSets": 3,
       "restSeconds": 150,
       "notes": "Teljes tartomany",
+      "muscleGroups": ["Comb", "Farizom"],
       "image": "/images/squat.svg"
     },
     {
       "order": 2,
       "name": "Kitores",
+      "sparkyId": "78eb1e92-bfc5-4626-bf1f-0b6d971c60b1",
       "equipment": "dumbbell",
       "defaultWeight": 20,
       "defaultReps": 10,
+      "defaultSets": 3,
       "restSeconds": 90,
+      "muscleGroups": ["Comb", "Farizom"],
       "image": "/images/lunge.svg"
     },
     {
       "order": 3,
       "name": "Romaniai felhuzas",
+      "sparkyId": "c6825baa-2d5c-4950-b0f4-e465a798413a",
       "equipment": "barbell",
       "defaultWeight": 60,
       "defaultReps": 8,
+      "defaultSets": 3,
       "restSeconds": 90,
+      "muscleGroups": ["Comb hajlito", "Farizom"],
       "image": "/images/rdl.svg"
     },
     {
       "order": 4,
       "name": "Vadli emeles",
+      "sparkyId": "37d5bc4c-6b42-46f6-b881-e529f101ab93",
       "equipment": "machine",
       "defaultWeight": 60,
       "defaultReps": 12,
+      "defaultSets": 3,
       "restSeconds": 60,
+      "muscleGroups": ["Vadli"],
       "image": "/images/calf-raise.svg"
     }
   ]

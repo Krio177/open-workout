@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS exercise_sets (
     weight          NUMERIC(7,2) NOT NULL,
     reps            INTEGER NOT NULL,
     set_number      INTEGER NOT NULL DEFAULT 1,
-    completed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    completed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_warmup       BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS personal_records (
@@ -37,6 +38,31 @@ CREATE TABLE IF NOT EXISTS exercise_times (
     duration_seconds  INTEGER NOT NULL DEFAULT 0,
     UNIQUE(session_id, exercise_name)
 );
+
+CREATE TABLE IF NOT EXISTS exercise_notes (
+    exercise_name TEXT PRIMARY KEY,
+    note          TEXT NOT NULL,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Migrations
+ALTER TABLE exercise_sets ADD COLUMN IF NOT EXISTS is_warmup BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE personal_records ADD COLUMN IF NOT EXISTS max_reps INTEGER;
+
+-- Backfill max_reps for records created before the column existed
+UPDATE personal_records pr
+SET max_reps = sub.reps
+FROM (
+  SELECT DISTINCT ON (es.exercise_name, es.equipment)
+    es.exercise_name, es.equipment, es.reps
+  FROM exercise_sets es
+  JOIN workout_sessions s ON s.id = es.session_id
+  WHERE es.is_warmup = false AND s.finished_at IS NOT NULL
+  ORDER BY es.exercise_name, es.equipment, es.weight DESC, es.reps DESC
+) sub
+WHERE pr.exercise_name = sub.exercise_name AND pr.equipment = sub.equipment AND pr.max_reps IS NULL;
+ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS rating SMALLINT;
+ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS sparky_last_entry_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON workout_sessions(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sets_session ON exercise_sets(session_id);

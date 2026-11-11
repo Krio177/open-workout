@@ -9,37 +9,49 @@
     {
       "order": 1,
       "name": "Felhuzas",
+      "sparkyId": "c4e528b9-cddb-4b54-a075-e4fa9652ab63",
       "equipment": "barbell",
       "defaultWeight": 70,
       "defaultReps": 6,
+      "defaultSets": 3,
       "restSeconds": 150,
+      "muscleGroups": ["Hat", "Farizom", "Comb hajlito"],
       "image": "/images/deadlift.svg"
     },
     {
       "order": 2,
       "name": "Evezes",
+      "sparkyId": "a5ec7ff5-6c63-4b6b-97c9-971bd506f9b5",
       "equipment": "barbell",
       "defaultWeight": 50,
       "defaultReps": 8,
+      "defaultSets": 3,
       "restSeconds": 90,
+      "muscleGroups": ["Hat", "Bicepsz"],
       "image": "/images/barbell-row.svg"
     },
     {
       "order": 3,
       "name": "Lat huzas",
+      "sparkyId": "87399c54-7f76-492c-9efa-ad78c40f4735",
       "equipment": "cable",
       "defaultWeight": 40,
       "defaultReps": 10,
+      "defaultSets": 3,
       "restSeconds": 75,
+      "muscleGroups": ["Hat", "Bicepsz"],
       "image": "/images/lat-pulldown.svg"
     },
     {
       "order": 4,
       "name": "Arckezeles",
+      "sparkyId": "2f543726-d492-411a-9bd8-d3abde904250",
       "equipment": "cable",
       "defaultWeight": 20,
       "defaultReps": 12,
+      "defaultSets": 3,
       "restSeconds": 60,
+      "muscleGroups": ["Vall", "Hat"],
       "image": "/images/face-pull.svg"
     }
   ]

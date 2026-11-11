@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edzes — Open Workout</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -22,7 +23,7 @@
     input[type=number]:focus::-webkit-inner-spin-button { opacity: 1; }
   </style>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="workoutApp()" x-init="init()">
+<body class="bg-zinc-950 text-zinc-100 min-h-screen bg-noise" x-data="workoutApp()">
 
   <!-- PR Toast -->
   <div x-show="showPrToast" x-transition
@@ -151,7 +152,7 @@
               </button>
               <input type="file" x-ref="imgPicker" accept="image/*" class="hidden" @change="uploadImage($event)">
             </div>
-            <div>
+            <div class="flex-1 min-w-0">
               <div class="flex items-center gap-3">
                 <h2 class="font-display text-3xl font-600 uppercase tracking-wide" x-text="currentExercise.name"></h2>
                 <a x-show="currentExercise.youtubeUrl" :href="currentExercise.youtubeUrl" target="_blank"
@@ -159,18 +160,63 @@
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
                 </a>
               </div>
-              <div class="flex items-center gap-3 mt-1">
+              <div class="flex items-center gap-3 mt-1 flex-wrap">
                 <span class="text-xs uppercase tracking-wider text-zinc-500" x-text="currentExercise.equipment"></span>
                 <span class="text-xs tabular-nums text-zinc-600 flex items-center gap-1">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                   <span x-text="formatDuration(exerciseElapsed)"></span>
                 </span>
+                <template x-for="mg in (currentExercise.muscleGroups || [])" :key="mg">
+                  <span class="text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 border"
+                        :style="`color: ${muscleGroupColor(mg)}; border-color: ${muscleGroupColor(mg)}50; background: ${muscleGroupColor(mg)}15`"
+                        x-text="mg"></span>
+                </template>
               </div>
+              <div x-show="currentPr" class="inline-flex items-center gap-1.5 mt-2 text-xs rounded border border-blue-500/30 bg-blue-500/10 text-blue-300 px-2 py-1">
+                <span>Legjobb: <span class="font-semibold" x-text="currentPr?.max_weight + 'kg x ' + (currentPr?.max_reps ?? '?')"></span></span>
+                <span class="text-blue-700">·</span>
+                <span>1RM ~<span class="font-semibold" x-text="Math.round(currentPr?.max_one_rm) + 'kg'"></span></span>
+              </div>
+              <template x-if="currentExercise.rackHeight || currentExercise.safetyHeight">
+                <div class="inline-flex items-center gap-1.5 mt-2 text-xs rounded border border-amber-500/40 bg-amber-500/10 text-amber-400 px-2 py-1">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h10M4 12h16M4 18h7M17 6a2 2 0 100 4 2 2 0 000-4zM8 16a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                  <span x-show="currentExercise.rackHeight">Állvány: <span class="font-semibold" x-text="currentExercise.rackHeight"></span></span>
+                  <span x-show="currentExercise.rackHeight && currentExercise.safetyHeight" class="text-amber-600">·</span>
+                  <span x-show="currentExercise.safetyHeight">Biztosító: <span class="font-semibold" x-text="currentExercise.safetyHeight"></span></span>
+                </div>
+              </template>
               <template x-if="currentExercise.notes">
                 <p class="text-sm text-zinc-400 mt-2 leading-relaxed" x-text="currentExercise.notes"></p>
               </template>
+              <!-- User note -->
+              <div class="mt-3">
+                <textarea
+                  x-model="exerciseNote"
+                  @blur="saveExerciseNote(currentExercise?.name)"
+                  placeholder="Megjegyzés..."
+                  rows="2"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-500 transition"
+                ></textarea>
+                <span x-show="noteSaving" class="text-[10px] text-zinc-600 mt-1 block">Mentés...</span>
+              </div>
             </div>
+            <div x-show="currentExercise && (exerciseHistory[currentExercise.name]?.length > 0)"
+                 x-ref="miniChartBox"
+                 class="w-40 h-24 flex-shrink-0 relative"></div>
           </div>
+
+          <!-- Exercise history -->
+          <template x-if="currentExercise && exerciseHistory[currentExercise.name]?.length > 0">
+            <div class="space-y-1">
+              <button @click="historyVisible = !historyVisible"
+                      class="text-[10px] uppercase tracking-[0.2em] text-zinc-600 hover:text-zinc-400 transition">
+                <span x-text="historyVisible ? 'Elozmeny ▲' : 'Elozmeny ▼'"></span>
+              </button>
+              <div x-show="historyVisible" x-transition class="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                <div x-ref="historyChartBox" style="height:120px"></div>
+              </div>
+            </div>
+          </template>
 
           <!-- Rest timer -->
           <div x-show="timerRunning" class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 text-center space-y-3 rest-pulse">
@@ -203,7 +249,12 @@
               <div @click="toggleSet(si)"
                    @mousedown="startDrag($event, si)" @touchstart="startDrag($event, si)"
                    class="animate-slide-in flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-200 cursor-pointer select-none relative overflow-hidden"
-                   :class="set.done ? 'bg-emerald-950/30 border-emerald-800/50' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'"
+                   :class="[
+                     set.done
+                       ? (set.isWarmup ? 'bg-amber-950/20 border-amber-800/30' : 'bg-emerald-950/30 border-emerald-800/50')
+                       : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700',
+                     set.isWarmup && !set.done && 'opacity-70'
+                   ]"
                    :style="`animation-delay: ${si * 50}ms; transform: translateX(${set._dragX || 0}px)`">
                 <!-- Drag weight indicator -->
                 <div x-show="set._dragDelta" class="absolute inset-0 flex items-center pointer-events-none z-10"
@@ -214,13 +265,18 @@
                 </div>
                 <!-- Check -->
                 <div class="flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200 pointer-events-none"
-                     :class="set.done ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'">
+                     :class="set.done
+                       ? (set.isWarmup ? 'bg-amber-500 border-amber-500' : 'bg-emerald-500 border-emerald-500')
+                       : 'border-zinc-600'">
                   <svg x-show="set.done" class="w-3.5 h-3.5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
                   </svg>
                 </div>
-                <!-- Set # -->
-                <span class="text-[10px] uppercase tracking-wider w-10" :class="set.done ? 'text-emerald-600' : 'text-zinc-600'" x-text="'S' + (si + 1)"></span>
+                <!-- Warmup toggle / Set # -->
+                <button @click.stop="if(!set.done) set.isWarmup = !set.isWarmup"
+                        class="text-[10px] uppercase tracking-wider w-10 text-left"
+                        :class="set.isWarmup ? 'text-amber-400 font-bold' : (set.done ? 'text-emerald-600' : 'text-zinc-600')"
+                        x-text="set.isWarmup ? 'W' : 'S' + (si + 1)"></button>
                 <!-- Weight -->
                 <input type="number" x-model.number="set.weight" step="0.5"
                        @click.stop
@@ -235,6 +291,10 @@
                        class="w-20 bg-zinc-800 border border-zinc-700 rounded px-3 py-2.5 text-center text-base font-medium focus:ring-1 focus:ring-zinc-500 outline-none disabled:opacity-40 disabled:border-transparent"
                        :class="set.done && 'bg-emerald-900/20 border-transparent'">
                 <span class="text-[10px] text-zinc-600">x</span>
+                <!-- 1RM -->
+                <span x-show="!set.isWarmup && set.weight > 0 && set.reps > 0 && set.reps < 37"
+                      class="text-[10px] text-zinc-600 tabular-nums hidden sm:inline"
+                      x-text="'~' + Math.round(set.weight * 36 / (37 - set.reps)) + ' 1RM'"></span>
                 <!-- PR -->
                 <span x-show="set.isPr" class="text-[10px] uppercase tracking-wider text-amber-400 font-medium">PR</span>
                 <!-- Delete -->
@@ -288,9 +348,23 @@
     </div>
   </div>
 
+  <!-- Clock bar -->
+  <div class="fixed bottom-0 left-0 right-0 bg-zinc-950/90 backdrop-blur border-t border-zinc-800 flex justify-center py-2 pointer-events-none">
+    <span class="font-display font-700 text-7xl tabular-nums tracking-widest text-zinc-100" x-text="clockTime"></span>
+  </div>
+  <!-- Spacer so content isn't hidden behind clock bar -->
+  <div class="h-28"></div>
+
   <script>
+    const MUSCLE_PALETTE = ['#ef4444', '#3b82f6', '#8b5cf6', '#f59e0b', '#f97316', '#22c55e', '#10b981', '#ec4899', '#06b6d4', '#a855f7', '#eab308', '#14b8a6'];
+    function muscleGroupColor(mg) {
+      let hash = 0;
+      for (let i = 0; i < mg.length; i++) hash = mg.charCodeAt(i) + ((hash << 5) - hash);
+      return MUSCLE_PALETTE[Math.abs(hash) % MUSCLE_PALETTE.length];
+    }
     function workoutApp() {
       return {
+        muscleGroupColor,
         sessionId: null, workout: null, session: null, lastSession: null,
         currentExerciseIndex: 0, allSets: {},
         elapsedSeconds: 0, elapsedInterval: null,
@@ -300,15 +374,24 @@
         allExerciseImages: {},
         autoAdvanceSeconds: 0, autoAdvanceInterval: null,
         exerciseTimes: {}, exerciseStartedAt: null, exerciseElapsed: 0, exerciseTimerInterval: null,
+        exerciseHistory: {}, historyVisible: false, historyChart: null, miniChart: null,
+        prByKey: {},
+        exerciseNote: '', noteSaving: false,
+        clockTime: '',
 
         get currentExercise() { return this.workout?.exercises?.[this.currentExerciseIndex]; },
+        get currentPr() {
+          const ex = this.currentExercise;
+          if (!ex) return null;
+          return this.prByKey[ex.name + '|' + ex.equipment] || null;
+        },
         get exerciseSets() {
           const ex = this.currentExercise;
           if (!ex) return [];
           return this.allSets[ex.name] || [];
         },
         get allCurrentSetsDone() {
-          const sets = this.exerciseSets;
+          const sets = this.exerciseSets.filter(s => !s.isWarmup);
           return sets.length > 0 && sets.every(s => s.done);
         },
         get exerciseProgress() {
@@ -319,7 +402,7 @@
         get allExercisesDone() {
           if (!this.workout) return false;
           return this.workout.exercises.every(ex => {
-            const sets = this.allSets[ex.name] || [];
+            const sets = (this.allSets[ex.name] || []).filter(s => !s.isWarmup);
             return sets.length > 0 && sets.every(s => s.done);
           });
         },
@@ -338,6 +421,9 @@
           this.workout = workoutsRes.find(w => w.id === sessionRes.workout_id);
           this.lastSession = await fetch(`/api/workouts/${sessionRes.workout_id}/last-session`).then(r => r.json());
 
+          const prs = await fetch('/api/prs').then(r => r.json());
+          for (const pr of prs) this.prByKey[pr.exercise_name + '|' + pr.equipment] = pr;
+
           for (const ex of this.workout.exercises) {
             const existing = (sessionRes.sets || []).filter(s => s.exercise_name === ex.name);
             const lastSets = (this.lastSession?.sets || []).filter(s => s.exercise_name === ex.name);
@@ -345,17 +431,21 @@
             if (existing.length > 0) {
               this.allSets[ex.name] = existing.map(s => ({
                 id: s.id, weight: Number(s.weight), reps: s.reps,
-                done: true, saved: true, isPr: false, saving: false
+                done: true, saved: true, isPr: false, saving: false, isWarmup: s.is_warmup || false
               }));
               const lw = Number(existing[existing.length - 1].weight);
               const lr = existing[existing.length - 1].reps;
-              this.allSets[ex.name].push({ weight: lw, reps: lr, done: false, saved: false, isPr: false, saving: false });
+              this.allSets[ex.name].push({ weight: lw, reps: lr, done: false, saved: false, isPr: false, saving: false, isWarmup: false });
             } else if (lastSets.length > 0) {
               this.allSets[ex.name] = lastSets.map(s => ({
-                weight: Number(s.weight), reps: s.reps, done: false, saved: false, isPr: false, saving: false
+                weight: Number(s.weight), reps: s.reps, done: false, saved: false, isPr: false, saving: false, isWarmup: false
               }));
             } else {
-              this.allSets[ex.name] = [{ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false }];
+              const count = ex.defaultSets || 3;
+              this.allSets[ex.name] = Array.from({ length: count }, () => ({
+                weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0,
+                done: false, saved: false, isPr: false, saving: false, isWarmup: false
+              }));
             }
           }
 
@@ -370,20 +460,57 @@
           clearInterval(this.elapsedInterval);
           this.elapsedInterval = setInterval(() => this.elapsedSeconds++, 1000);
           this.loadExerciseImages();
+          this.loadExerciseHistory();
+          if (this.currentExercise) await this.loadExerciseNote(this.currentExercise.name);
 
           // Load saved exercise times and start tracking
           for (const et of (sessionRes.exercise_times || [])) {
             this.exerciseTimes[et.exercise_name] = et.duration_seconds;
           }
           this.startExerciseTimer();
+
+          // Reload on bfcache restore so stale/frozen state never shows
+          window.addEventListener('pageshow', (e) => { if (e.persisted) window.location.reload(); });
+
+          const updateClock = () => { this.clockTime = new Date().toLocaleTimeString('hu', { hour: '2-digit', minute: '2-digit' }); };
+          updateClock();
+          setInterval(updateClock, 1000);
         },
 
-        switchExercise(i) {
+        async switchExercise(i) {
           this.clearAutoAdvance();
           this.stopExerciseTimer();
           this.currentExerciseIndex = i;
+          this.historyVisible = false;
           this.startExerciseTimer();
           this.loadExerciseImages();
+          this.loadExerciseHistory();
+          await this.loadExerciseNote(this.workout.exercises[i].name);
+        },
+
+        async loadExerciseNote(name) {
+          try {
+            const res = await fetch(`/api/exercises/${encodeURIComponent(name)}/note`);
+            const data = await res.json();
+            this.exerciseNote = data.note || '';
+          } catch (e) {
+            console.error('[note] load failed:', e);
+            this.exerciseNote = '';
+          }
+        },
+
+        async saveExerciseNote(name) {
+          if (!name) return;
+          this.noteSaving = true;
+          try {
+            await fetch(`/api/exercises/${encodeURIComponent(name)}/note`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ note: this.exerciseNote }),
+            });
+          } finally {
+            this.noteSaving = false;
+          }
         },
 
         async loadExerciseImages() {
@@ -415,6 +542,113 @@
           clearInterval(this.carouselInterval);
           this.carouselIndex = (this.carouselIndex + 1) % this.exerciseImages.length;
           if (this.exerciseImages.length > 1) this.startCarousel();
+        },
+
+        async loadExerciseHistory() {
+          const ex = this.currentExercise;
+          if (!ex) return;
+          if (this.exerciseHistory[ex.name]) { this.$nextTick(() => { this.renderHistoryChart(); this.renderMiniChart(); }); return; }
+          const res = await fetch(`/api/exercises/${encodeURIComponent(ex.name)}/history?limit=10`).then(r => r.json());
+          this.exerciseHistory[ex.name] = res.history || [];
+          this.$nextTick(() => { this.renderHistoryChart(); this.renderMiniChart(); });
+        },
+
+        renderMiniChart() {
+          const ex = this.currentExercise;
+          if (this.miniChart) { try { this.miniChart.destroy(); } catch (e) {} this.miniChart = null; }
+          const box = this.$refs.miniChartBox;
+          if (!box) return;
+          box.innerHTML = '';
+          if (!ex) return;
+          const data = (this.exerciseHistory[ex.name] || []).slice(-5);
+          if (data.length === 0) return;
+          const canvas = document.createElement('canvas');
+          box.appendChild(canvas);
+          const oneRms = data.map(d => d.one_rm);
+          const min = Math.min(...oneRms), max = Math.max(...oneRms);
+          const pad = (max - min) * 0.2 || 5; // a flat line (min === max) needs manual padding or Chart.js draws nothing
+          this.miniChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels: data.map(d => new Date(d.date).toLocaleDateString('hu', { month: '2-digit', day: '2-digit' })),
+              datasets: [{
+                data: oneRms,
+                borderColor: '#3b82f6',
+                backgroundColor: '#3b82f633',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: '#60a5fa',
+                pointBorderColor: '#60a5fa',
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false, // no pending frames that could draw after destroy()
+              layout: { padding: 4 },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#000',
+                  callbacks: { label: (ctx) => `${data[ctx.dataIndex].max_weight}kg x ${data[ctx.dataIndex].max_reps}` }
+                }
+              },
+              scales: {
+                x: { ticks: { color: '#60a5fa', font: { size: 9 } }, grid: { display: false } },
+                y: { display: false, min: min - pad, max: max + pad }
+              }
+            }
+          });
+        },
+
+        renderHistoryChart() {
+          const ex = this.currentExercise;
+          if (this.historyChart) { try { this.historyChart.destroy(); } catch (e) {} this.historyChart = null; }
+          const box = this.$refs.historyChartBox;
+          if (!box) return;
+          box.innerHTML = '';
+          if (!ex) return;
+          const data = this.exerciseHistory[ex.name];
+          if (!data || data.length === 0) return;
+          const canvas = document.createElement('canvas');
+          canvas.className = 'w-full h-full';
+          box.appendChild(canvas);
+          this.historyChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels: data.map(d => d.date),
+              datasets: [{
+                data: data.map(d => d.max_weight),
+                borderColor: this.workout?.color || '#ef4444',
+                backgroundColor: (this.workout?.color || '#ef4444') + '20',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: this.workout?.color || '#ef4444',
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false, // no pending frames that could draw after destroy()
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => {
+                      const d = data[ctx.dataIndex];
+                      return `${d.max_weight}kg | 1RM: ${d.one_rm}kg`;
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: { ticks: { color: '#52525b', font: { size: 10 } }, grid: { color: '#27272a' } },
+                y: { ticks: { color: '#52525b', font: { size: 10 } }, grid: { color: '#27272a' }, beginAtZero: false }
+              }
+            }
+          });
         },
 
         async uploadImage(event) {
@@ -486,7 +720,7 @@
         addSet() {
           const ex = this.currentExercise; if (!ex) return;
           const sets = this.allSets[ex.name]; const last = sets[sets.length - 1];
-          sets.push({ weight: last ? last.weight : (ex.defaultWeight || 0), reps: last ? last.reps : (ex.defaultReps || 0), done: false, saved: false, isPr: false, saving: false });
+          sets.push({ weight: last ? last.weight : (ex.defaultWeight || 0), reps: last ? last.reps : (ex.defaultReps || 0), done: false, saved: false, isPr: false, saving: false, isWarmup: false });
         },
 
         goNextExercise() {
@@ -534,10 +768,11 @@
 
           const res = await fetch(`/api/sessions/${this.sessionId}/sets`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ exercise_name: ex.name, exercise_order: ex.order, equipment: ex.equipment, weight: set.weight, reps: set.reps, set_number: si + 1 })
+            body: JSON.stringify({ exercise_name: ex.name, exercise_order: ex.order, equipment: ex.equipment, weight: set.weight, reps: set.reps, set_number: si + 1, is_warmup: set.isWarmup })
           }).then(r => r.json());
 
           set.done = true; set.saved = true; set.saving = false; set.isPr = res.isNewPr; set.id = res.set.id;
+          if (res.pr) this.prByKey[ex.name + '|' + ex.equipment] = res.pr;
           if (res.isNewPr) { this.showPrToast = true; setTimeout(() => this.showPrToast = false, 3000); }
 
           // Start rest timer after each completed set
@@ -546,7 +781,7 @@
           } else {
             this.startRest(ex.restSeconds || this.workout.defaultRestSeconds || 90);
             // All sets done for this exercise — switch to next, rest timer keeps running
-            if (this.allCurrentSetsDone) this.goNextExercise();
+            if (this.allCurrentSetsDone) setTimeout(() => this.goNextExercise(), 2000);
           }
         },
 
@@ -556,7 +791,7 @@
         },
         isExerciseDone(i) {
           const ex = this.workout?.exercises?.[i];
-          const sets = this.allSets[ex?.name] || [];
+          const sets = (this.allSets[ex?.name] || []).filter(s => !s.isWarmup);
           return sets.length > 0 && sets.every(s => s.done);
         },
 
@@ -564,7 +799,7 @@
           const ex = this.currentExercise; const sets = this.allSets[ex.name]; const set = sets[si];
           if (set.saved && set.id) await fetch(`/api/sessions/${this.sessionId}/sets/${set.id}`, { method: 'DELETE' });
           sets.splice(si, 1);
-          if (sets.length === 0) sets.push({ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false });
+          if (sets.length === 0) sets.push({ weight: ex.defaultWeight || 0, reps: ex.defaultReps || 0, done: false, saved: false, isPr: false, saving: false, isWarmup: false });
         },
 
         startExerciseTimer() {
@@ -594,24 +829,24 @@
           });
         },
 
-        beep(count = 1) {
+        beep(count = 1, dur = 150, lastDur = null) {
           try {
             const ctx = new AudioContext();
             const o = ctx.createOscillator(); const g = ctx.createGain();
             o.connect(g); g.connect(ctx.destination);
             o.frequency.value = 880; g.gain.value = 0.3;
             o.start();
-            const dur = 150;
-            setTimeout(() => { o.stop(); ctx.close(); }, dur);
+            setTimeout(() => { o.stop(); ctx.close(); }, count === 1 && lastDur ? lastDur : dur);
             for (let i = 1; i < count; i++) {
               setTimeout(() => {
+                const isLast = i === count - 1;
                 const c2 = new AudioContext();
                 const o2 = c2.createOscillator(); const g2 = c2.createGain();
                 o2.connect(g2); g2.connect(c2.destination);
                 o2.frequency.value = 880; g2.gain.value = 0.3;
                 o2.start();
-                setTimeout(() => { o2.stop(); c2.close(); }, dur);
-              }, i * 300);
+                setTimeout(() => { o2.stop(); c2.close(); }, isLast && lastDur ? lastDur : dur);
+              }, i * (dur + 150));
             }
           } catch (e) {}
         },
@@ -627,7 +862,7 @@
         skipRest() { clearInterval(this.timerInterval); this.endRest(); },
         endRest() {
           clearInterval(this.timerInterval); this.timerRunning = false;
-          this.beep(3);
+          this.beep(3, 150, 500);
           if (this.allCurrentSetsDone) this.startAutoAdvance();
         },
 
