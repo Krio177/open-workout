@@ -1,0 +1,90 @@
+/* Gym theme: "iron & chalk". Loaded last on every page; overrides Tailwind's solid zinc panels with glass. */
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+
+:root {
+  --iron: #0b0b0d;
+  --plate-red: #ef4444;
+  --plate-blue: #3b82f6;
+  --plate-yellow: #facc15;
+  --plate-green: #22c55e;
+  --chalk: #f4f4f5;
+  --glass: rgba(24, 24, 27, 0.55);
+  --glass-strong: rgba(24, 24, 27, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.07);
+}
+
+html { background: var(--iron); }
+body.bg-zinc-950 { background: transparent !important; }
+.bg-noise { background-image: none !important; }
+
+.font-display { font-family: 'Anton', 'Oswald', sans-serif !important; letter-spacing: 0.01em; }
+
+/* Glass panels */
+.bg-zinc-900, .bg-zinc-900\/80, .bg-zinc-900\/50 {
+  background: var(--glass) !important;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+.bg-zinc-950, .bg-zinc-950\/90 { background: var(--glass-strong) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.bg-zinc-800 { background: rgba(63, 63, 70, 0.45) !important; }
+.bg-zinc-800\/50 { background: rgba(63, 63, 70, 0.25) !important; }
+.rounded-lg.border, .rounded-xl.border { box-shadow: inset 0 1px 0 var(--glass-edge), 0 20px 40px -24px rgba(0, 0, 0, 0.8); }
+header { background: linear-gradient(180deg, rgba(11, 11, 13, 0.75), rgba(11, 11, 13, 0.35)) !important; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+/* Background layer (injected by theme.js) */
+#gym-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+#gym-bg svg { position: absolute; }
+#gym-bg .bg-full { inset: 0; width: 100%; height: 100%; }
+
+.spin { transform-box: fill-box; transform-origin: center; animation: spin 60s linear infinite; }
+.spin.rev { animation-direction: reverse; animation-duration: 80s; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.swing { transform-box: view-box; transform-origin: 60px 0; animation: swing 3.2s ease-in-out infinite; }
+@keyframes swing { 0%, 100% { transform: rotate(28deg); } 50% { transform: rotate(-28deg); } }
+
+.chalk circle { animation: chalk 14s linear infinite; }
+@keyframes chalk {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 0.5; }
+  100% { transform: translateY(-110vh); opacity: 0; }
+}
+
+.ecg path { stroke-dasharray: 600; stroke-dashoffset: 600; animation: ecg 4s linear infinite; }
+@keyframes ecg { 60% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -600; } }
+
+.drift { animation: drift 22s ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translate(-30px, 18px) rotate(-14deg); } }
+
+/* Logo lifter: bar pressed up and down, bending under load */
+.lifter { display: inline-block; width: 64px; height: 48px; vertical-align: bottom; margin-right: 12px; }
+.lifter .bar { animation: press 2.4s cubic-bezier(.5, 0, .3, 1) infinite; }
+.lifter .bar path { animation: bend 2.4s cubic-bezier(.5, 0, .3, 1) infinite; }
+.lifter .arms { transform-box: view-box; transform-origin: 32px 40px; animation: arms 2.4s cubic-bezier(.5, 0, .3, 1) infinite; }
+@keyframes press { 0%, 100% { transform: translateY(14px); } 45%, 55% { transform: translateY(0); } }
+@keyframes bend { 0%, 100% { d: path('M6 10 Q32 14 58 10'); } 45%, 55% { d: path('M6 10 Q32 8 58 10'); } }
+@keyframes arms { 0%, 100% { transform: scaleY(0.55); } 45%, 55% { transform: scaleY(1); } }
+
+/* Buttons: animated SVG icon slides in on hover (mask so it takes the button's text color) */
+:root { --ico-press: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cstyle%3Eg{animation:p .9s cubic-bezier(.5,0,.3,1) infinite}%40keyframes p{0%25,100%25{transform:translateY(5px)}50%25{transform:translateY(0)}}%3C/style%3E%3Cg%3E%3Crect x='1' y='4' width='3' height='10' rx='1'/%3E%3Crect x='20' y='4' width='3' height='10' rx='1'/%3E%3Crect x='4.5' y='6' width='2' height='6' rx='.6'/%3E%3Crect x='17.5' y='6' width='2' height='6' rx='.6'/%3E%3Crect x='4' y='8.2' width='16' height='1.6' rx='.8'/%3E%3C/g%3E%3Crect x='8' y='20' width='8' height='2' rx='1'/%3E%3C/svg%3E"); --ico-plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cstyle%3Eg{transform-origin:12px 12px;animation:s 1.4s linear infinite}%40keyframes s{to{transform:rotate(360deg)}}%3C/style%3E%3Cg fill='none' stroke='%23000'%3E%3Ccircle cx='12' cy='12' r='9.5' stroke-width='3'/%3E%3Ccircle cx='12' cy='12' r='2.5' stroke-width='2'/%3E%3Cpath d='M12 4.5v3M12 16.5v3M4.5 12h3M16.5 12h3' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E"); }
+button.w-full, button.uppercase.border, nav a { position: relative; isolation: isolate; }
+button.w-full::before, button.uppercase.border::before, nav a::before {
+  content: ''; display: inline-block; vertical-align: -0.2em; width: 0; height: 1.25em; margin-right: 0;
+  background: currentColor; -webkit-mask: var(--ico-press) center / contain no-repeat; mask: var(--ico-press) center / contain no-repeat;
+  opacity: 0; transition: width .25s ease, margin .25s ease, opacity .25s ease;
+}
+nav a::before { -webkit-mask-image: var(--ico-plate); mask-image: var(--ico-plate); }
+button.w-full:not(:disabled):hover::before, button.uppercase.border:hover::before, nav a:hover::before { width: 1.25em; margin-right: .6em; opacity: 1; }
+
+/* Chalk sweep across the main action buttons */
+button.w-full::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.12) 50%, transparent 65%) -150% 0 / 250% 100% no-repeat;
+}
+button.w-full:not(:disabled):hover::after { animation: sweep 1.1s ease-out; }
+@keyframes sweep { to { background-position: 150% 0; } }
+button:not(:disabled):active { transform: scale(.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  #gym-bg *, .lifter *, button::after { animation: none !important; }
+}
